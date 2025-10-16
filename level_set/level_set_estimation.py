@@ -31,53 +31,27 @@ diff_model = True  # Doesn't matter
 freeze_model = False # Doesn't matter - to avoid a NotImplementedError
 system = dynamics.Dubins3D(goalR, velocity, omega_max, angle_alpha_factor, set_mode, diff_model, freeze_model)
 
-# print("\n")
-# state = torch.Tensor([-1.0, 0.5, 0.0])
-# dvds = torch.Tensor([1.0, 1.0, 1.0])
-# ctrl = system.optimal_control(state, dvds)
-# print(ctrl)
-# dsdt = system.dsdt(state, ctrl, disturbance=None)
-# print(dsdt)
-
-# state_traj = [state]
-# curr_state = state
-# time_steps = 1000
-# for t in range(time_steps):
-#     # dvds = torch.Tensor([1.0, 1.0, 1.0])
-#     ctrl = system.optimal_control(curr_state, dvds)
-#     dsdt = system.dsdt(curr_state, ctrl, disturbance=None)
-#     next_state = system.equivalent_wrapped_state(curr_state + dt*dsdt)
-#     state_traj.append(next_state)
-#     curr_state = next_state
-# state_traj = torch.Tensor(np.array(state_traj))
-
-# fig, ax = plt.subplots()
-# circle = plt.Circle((0, 0), goalR, color='r', fill=False)
-# ax.scatter(state_traj[:, 0], state_traj[:, 1])
-# ax.add_patch(circle)
-# ax.set_aspect('equal', adjustable='box')
-# plt.show()
-
-# print(system.cost_fn(state_traj))
-
 
 def get_dvds(value_fn, state, delta=0.01):
-    state = np.array([state[:2]])
+    # state = np.array([state[:2]])
+    state = np.array([state])
     grad = []
-    for i in range(len(state[0])):
-        direction = np.zeros(len(state[0]))
+    for i in range(state.shape[1]):
+        direction = np.zeros(state.shape[1])
         direction[i] = 1.0
         delta_state = state + direction*delta
         partial_deriv = (value_fn(delta_state) - value_fn(state))/delta 
         grad.append(partial_deriv)
-    # For theta
-    grad.append(0.0)
-    return torch.Tensor(grad)
+    # # For theta
+    # grad.append(0.0)
+    grad = torch.squeeze(torch.Tensor(grad), -1)
+    grad = torch.transpose(grad, 0, 1)
+    return grad
 
 def batched_rollouts_generator(value_fn, system=system, theta=0.0, time_steps=10000, dt=dt):
     def rollout(state, plot_traj=True):
-        state = list(state)
-        state.append(theta)
+        # state = list(state)
+        # state.append(theta)
         state = torch.Tensor(state) 
         state_traj = [state]
         curr_state = state
@@ -114,18 +88,21 @@ def batched_rollouts_generator(value_fn, system=system, theta=0.0, time_steps=10
     return batched_rollouts
 
 
-mean_function = GPy.core.Mapping(2,1)
-mean_function.f = lambda x: x[0][0]**2 + x[0][1]**2 - 1
+mean_function = GPy.core.Mapping(3,1)
+mean_function.f = lambda x: np.expand_dims(x[:, 0]**2 + x[:, 1]**2 - 1, -1)
 mean_function.update_gradients = lambda a,b: 0
 mean_function.gradients_X = lambda a,b: 0
 value_fn = mean_function.f
 
+
 f = batched_rollouts_generator(value_fn) 
-input_dim = 2
+input_dim = 3
 oned_x = np.arange(-5, 5, 1)
-xv, yv = np.meshgrid(oned_x, oned_x)
-candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1)))
-range_x = [[-5, 5], [-5, 5]]
+theta_grid = np.arange(-np.pi, np.pi, 1.0)
+xv, yv, thetav = np.meshgrid(oned_x, oned_x, theta_grid)
+candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1), thetav.reshape(-1, 1)))
+
+range_x = [[-5, 5], [-5, 5], [-np.pi, np.pi]]
 noise_var = 1e-15
 cost_thres = 0.0 
 conf_thres = 0.9
@@ -137,11 +114,20 @@ bols.initial_setup(bo_init_iters)
 print("\nCompleted BOLevelSet initial setup")
 # bols.optimize_loop(bo_iters)
 
-print(bols.extract_levelset(candidates))
+print("Level Set\n", bols.extract_levelset(candidates))
 
-mu, cov = bols.m.predict(candidates, full_cov=True, include_likelihood=True)
-value_fn = mu
+# def new_value_fn_generator(bols):
+#     def new_value_fn(state):
+#         state = np.array([state])
+#         mu, cov = bols.m.predict(state, full_cov=True, include_likelihood=True)
+#         return mu[0][0]
+#     return new_value_fn
 
+# f = batched_rollouts_generator(new_value_fn_generator(bols)) 
+# bo_init_iters = 10
+# bols = BOLevelSet(f, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, conf_thres, length_scale, logdir)
+# bols.initial_setup(bo_init_iters)
+# print("\nCompleted BOLevelSet initial setup")
 
 
 print("\nYAY!")

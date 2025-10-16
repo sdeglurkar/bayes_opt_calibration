@@ -100,6 +100,9 @@ class BOLevelSet:
             self.m.plot(plot_limits=np.array([self.range_x[0]-0.25, self.range_x[1]+0.25]))
             plt.plot(self.candidates.flatten(), BOLevelSet.normalize(self.acq.flatten(), 10), c='orange')
         if self.input_dim == 2:
+            # fixed_dims = [(1, 5.0)]
+            # self.m.plot(fixed_inputs=fixed_dims)
+            # self.m.plot(fixed_inputs=fixed_dims, plot_limits=[(0, 10), (0, 10)], projection='2d')
             self.m.plot()
             plt.savefig(self.logdir + f'/gp_{iter}.png')
             plt.figure()
@@ -112,6 +115,10 @@ class BOLevelSet:
             plt.contourf(original_x, original_y, BOLevelSet.normalize(z))
             plt.colorbar()
             plt.savefig(self.logdir + f'/mile_{iter}.png')
+        if self.input_dim == 3:
+            fixed_dims = [(2, 0.0)]
+            self.m.plot(fixed_inputs=fixed_dims, projection='2d')
+            plt.savefig(self.logdir + f'/gp_{iter}.png')
 
     def save(self, fname):
         temp_f = self.f
