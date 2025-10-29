@@ -75,7 +75,6 @@ class BOLevelSet:
         y_next = self.f(x_next) #+ np.random.randn(1,1)*np.sqrt(self.noise_var)
         self.X = np.vstack((self.X, x_next))
         self.Y = np.vstack((self.Y, y_next))
-        print("self.Y", self.Y)
         self.m.set_XY(X=self.X, Y=self.Y)
         self.m.optimize(messages=True)
         self.acq = self.MILE(self.candidates, self.cost_thres, self.conf_thres)
