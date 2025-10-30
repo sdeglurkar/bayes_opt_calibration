@@ -22,6 +22,7 @@ from scipy.io import loadmat
 DT = 0.001
 DELTA = 0.01
 TIME_STEPS = 10000
+SYSTEM_TYPE = 'DOUBLE_INT'
 
 
 goalR = 1.0
@@ -31,7 +32,9 @@ angle_alpha_factor = 1.0
 set_mode = 'avoid'
 diff_model = True  # Doesn't matter
 freeze_model = False # Doesn't matter - to avoid a NotImplementedError
-system = dynamics.Dubins3D(goalR, velocity, omega_max, angle_alpha_factor, set_mode, diff_model, freeze_model)
+max_accel = 1.0
+# system = dynamics.Dubins3D(goalR, velocity, omega_max, angle_alpha_factor, set_mode, diff_model, freeze_model)
+system = dynamics.DoubleIntegrator(goalR, max_accel, set_mode, diff_model, freeze_model)
 
 
 def get_dvds(value_fn, state, delta=DELTA):
@@ -72,18 +75,28 @@ def batched_rollouts_generator(value_fn, system=system, time_steps=TIME_STEPS, d
         print("\n")
 
         if plot_traj:
-            fig, ax = plt.subplots()
-            circle = plt.Circle((0, 0), goalR, color='r', fill=False)
-            ax.scatter(state_traj[:, 0], state_traj[:, 1])
-            ax.add_patch(circle)
-            ax.set_aspect('equal', adjustable='box')
-            plt.show()
+            if SYSTEM_TYPE == 'DOUBLE_INT':
+                fig, ax = plt.subplots()
+                ax.add_patch(matplotlib.patches.Rectangle((-1, -3), 2, 6, fill=False))
+                ax.scatter(state_traj[:, 0], state_traj[:, 1])
+                ax.set_aspect('equal', adjustable='box')
+                plt.show()
+            elif SYSTEM_TYPE == 'DUBINS':
+                fig, ax = plt.subplots()
+                circle = plt.Circle((0, 0), goalR, color='r', fill=False)
+                ax.scatter(state_traj[:, 0], state_traj[:, 1])
+                ax.add_patch(circle)
+                ax.set_aspect('equal', adjustable='box')
+                plt.show()
+            else:
+                raise NotImplementedError
 
         return cost
     
     def batched_rollouts(states):
         costs = []
         for state in states:
+            state = np.append(state, 1.0)
             cost = np.array(rollout(state))
             costs.append(cost)
         print("Done running rollouts!")
@@ -92,37 +105,52 @@ def batched_rollouts_generator(value_fn, system=system, time_steps=TIME_STEPS, d
     return batched_rollouts
 
 
-mean_function = GPy.core.Mapping(3,1)
-mean_function.f = lambda x: np.expand_dims(x[:, 0]**2 + x[:, 1]**2 + x[:, 2]**2 - 1, -1)
+# mean_function = GPy.core.Mapping(3,1)
+# mean_function = GPy.core.Mapping(2,1)
+mean_function = GPy.core.Mapping(1,1)
+# mean_function.f = lambda x: np.expand_dims(x[:, 0]**2 + x[:, 1]**2 - 1, -1) # lambda x: np.expand_dims(x[:, 0]**2 + x[:, 1]**2 + x[:, 2]**2 - 1, -1)
+mean_function.f = lambda x: np.expand_dims(x[:, 0]**2 - 1, -1)
 mean_function.update_gradients = lambda a,b: 0
 mean_function.gradients_X = lambda a,b: 0
 value_fn = mean_function.f
 
 
 f = batched_rollouts_generator(value_fn) 
-input_dim = 3
-oned_x = np.arange(-5, 5, 1)
+input_dim = 1 #3
+# oned_x = np.arange(-5, 5, 1)
+oned_x = np.arange(-5, 5, 0.1)
 theta_grid = np.arange(-np.pi, np.pi, 1.0)
-xv, yv, thetav = np.meshgrid(oned_x, oned_x, theta_grid)
-candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1), thetav.reshape(-1, 1)))
+# xv, yv, thetav = np.meshgrid(oned_x, oned_x, theta_grid)
+# candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1), thetav.reshape(-1, 1)))
+# xv, yv = np.meshgrid(oned_x, oned_x)
+xv = np.meshgrid(oned_x)[0]
+# candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1)))
+candidates = xv.reshape(-1, 1)
 
-range_x = [[-5, 5], [-5, 5], [-np.pi, np.pi]]
-noise_var = 1e-15
+# range_x = [[-5, 5], [-5, 5], [-np.pi, np.pi]]
+# range_x = [[-5, 5], [-5, 5]]
+range_x = [[-5, 5]]
+noise_var = 0.001 #1e-15
 cost_thres = 0.0 
 conf_thres = 0.9
 length_scale = 0.25
-logdir = 'model_dir'
-bo_init_iters = 50
+logdir = 'dblint_model_dir'
+bo_init_iters = 20
 bols = BOLevelSet(f, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, conf_thres, length_scale, logdir)
 bols.initial_setup(bo_init_iters)
 print("\nCompleted BOLevelSet initial setup")
-bo_iters = 50
+bo_iters = 150
 bols.optimize_loop(bo_iters)
 
-set_theta_grid = theta_grid * 0
-xv, yv, thetav = np.meshgrid(oned_x, oned_x, set_theta_grid)
-candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1), thetav.reshape(-1, 1)))
-print("Level Set\n", bols.extract_levelset(candidates))
+# set_theta_grid = theta_grid * 0
+# xv, yv, thetav = np.meshgrid(oned_x, oned_x, set_theta_grid)
+# candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1), thetav.reshape(-1, 1)))
+level_set = bols.extract_levelset(candidates)
+# print("Level Set\n", bols.extract_levelset(candidates))
+print("Level Set\n", level_set)
+plt.figure()
+plt.scatter([elem[0] for elem in level_set], [0*elem[0] for elem in level_set])
+plt.savefig(logdir + f'/level_set.png')
 
 # def new_value_fn_generator(bols):
 #     def new_value_fn(state):

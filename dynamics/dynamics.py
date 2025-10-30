@@ -185,7 +185,16 @@ class DoubleIntegrator(Dynamics):
             value_normto=0.02,
             diff_model=diff_model
         )
+        self.last_control = None 
+        self.time_to_play_control = 1000
+        self.control_counter = 0
     
+    def state_test_range(self):
+        return [
+            [-1, 1],
+            [-1, 1],
+        ]
+
     def equivalent_wrapped_state(self, state):
         return state 
     
@@ -200,7 +209,7 @@ class DoubleIntegrator(Dynamics):
         return dsdt
     
     def boundary_fn(self, state):
-        return torch.norm(state[..., :2], dim=-1) - self.goalR
+        return torch.norm(state[..., :1], dim=-1) - self.goalR
 
     def cost_fn(self, state_traj):
         return torch.min(self.boundary_fn(state_traj), dim=-1).values
@@ -222,10 +231,31 @@ class DoubleIntegrator(Dynamics):
             return (self.max_accel*torch.sign(dvds[..., 1]))[..., None] # Maximize Hamiltonian
 
     def random_control(self):
-        return self.max_accel * ((torch.rand(1,1)*2)-1)
+        # Keep playing a random control for time_to_play_control amount of steps
+        if self.last_control is None:
+            self.last_control = self.max_accel * ((torch.rand(1,1)*2)-1)
+            print("New control: ", self.last_control)
+            return self.last_control
+        else:
+            if self.control_counter < self.time_to_play_control:
+                self.control_counter += 1
+                return self.last_control
+            else:
+                self.control_counter = 0
+                self.last_control = self.max_accel * ((torch.rand(1,1)*2)-1)
+                print("New control: ", self.last_control)
+                return self.last_control
 
     def optimal_disturbance(self, state, dvds):
         return 0
+    
+    def plot_config(self):
+        return {
+            'state_slices': [0, 0],
+            'state_labels': ['x', 'y'],
+            'x_axis_idx': 0,
+            'y_axis_idx': 1
+        }
 
 class Dubins3D(Dynamics):
     def __init__(self, goalR:float, velocity:float, omega_max:float, angle_alpha_factor:float, set_mode:str, diff_model:bool, freeze_model: bool):

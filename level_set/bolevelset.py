@@ -83,7 +83,7 @@ class BOLevelSet:
         if save:
             self.save(self.logdir + f'/bols_{iter}')
         
-    def optimize_loop(self, iters, plot_every=5, save_every=5):
+    def optimize_loop(self, iters, plot_every=10, save_every=10):
         for i in range(iters):
             print(f"optimizing step {i}")
             self.optimize_once(plot=((i+1) % plot_every == 0), save=((i+1) % save_every == 0), iter=i)
@@ -96,8 +96,10 @@ class BOLevelSet:
 
     def plot(self, iter=0):
         if self.input_dim == 1:
-            self.m.plot(plot_limits=np.array([self.range_x[0]-0.25, self.range_x[1]+0.25]))
+            self.m.plot(plot_limits=np.array([self.range_x[0][0]-0.25, self.range_x[0][1]+0.25]))
             plt.plot(self.candidates.flatten(), BOLevelSet.normalize(self.acq.flatten(), 10), c='orange')
+            plt.plot(self.candidates.flatten(), 0*self.candidates.flatten(), c='k')
+            plt.savefig(self.logdir + f'/gp_{iter}.png')
         if self.input_dim == 2:
             # fixed_dims = [(1, 5.0)]
             # self.m.plot(fixed_inputs=fixed_dims)
