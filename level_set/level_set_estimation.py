@@ -29,7 +29,7 @@ goalR = 1.0
 velocity = 1.0
 omega_max = 1.0
 angle_alpha_factor = 1.0
-set_mode = 'avoid'
+set_mode = 'avoid'  
 diff_model = True  # Doesn't matter
 freeze_model = False # Doesn't matter - to avoid a NotImplementedError
 max_accel = 1.0
@@ -51,7 +51,7 @@ def get_dvds(value_fn, state, delta=DELTA):
     return grad
 
 def batched_rollouts_generator(value_fn, system=system, time_steps=TIME_STEPS, dt=DT):
-    def rollout(state, plot_traj=False):
+    def rollout(state, plot_traj=True):
         state = torch.Tensor(state) 
         state_traj = [state]
         curr_state = state
@@ -80,6 +80,8 @@ def batched_rollouts_generator(value_fn, system=system, time_steps=TIME_STEPS, d
                 ax.add_patch(matplotlib.patches.Rectangle((-1, -3), 2, 6, fill=False))
                 ax.scatter(state_traj[:, 0], state_traj[:, 1])
                 ax.set_aspect('equal', adjustable='box')
+                ax.set_xlabel("Position")
+                ax.set_ylabel("Velocity")
                 plt.show()
             elif SYSTEM_TYPE == 'DUBINS':
                 fig, ax = plt.subplots()
@@ -87,6 +89,8 @@ def batched_rollouts_generator(value_fn, system=system, time_steps=TIME_STEPS, d
                 ax.scatter(state_traj[:, 0], state_traj[:, 1])
                 ax.add_patch(circle)
                 ax.set_aspect('equal', adjustable='box')
+                ax.set_xlabel("x")
+                ax.set_ylabel("y")
                 plt.show()
             else:
                 raise NotImplementedError
@@ -96,7 +100,8 @@ def batched_rollouts_generator(value_fn, system=system, time_steps=TIME_STEPS, d
     def batched_rollouts(states):
         costs = []
         for state in states:
-            state = np.append(state, 1.0)
+            if SYSTEM_TYPE == 'DOUBLE_INT':
+                state = np.append(state, 1.0)
             cost = np.array(rollout(state))
             costs.append(cost)
         print("Done running rollouts!")
