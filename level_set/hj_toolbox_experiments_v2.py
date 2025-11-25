@@ -5,6 +5,7 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 import plotly.graph_objects as go
+from scipy.stats import norm
 
 from bolevelset import BOLevelSet
 
@@ -15,7 +16,8 @@ DT = 0.01
 FINAL_TIME = -1.0
 TRAJ_TIME_STEPS = int(np.abs(FINAL_TIME)/DT)
 goal_R = 5
-NUM_BO_INIT_ITERS = 100
+NUM_BO_INIT_ITERS = 100 #30
+NUM_BO_ITERS = 100 #50
 
 class DubinsCar(hj.ControlAndDisturbanceAffineDynamics):
 
@@ -103,12 +105,13 @@ mean_function.update_gradients = lambda a,b: 0
 mean_function.gradients_X = lambda a,b: 0
 
 def batched_rollouts_generator(value_fn, time_steps=TRAJ_TIME_STEPS, dt=DT):
+    value_gradients = grid.grad_values(value_fn[-1, :, :, :])
     def rollout(state, plot_traj=False):
         orig_state = state
         state_traj = [state]
         for _ in range(time_steps):
             index = grid.nearest_index(state)
-            grad_val = grid.grad_values(value_fn[-1, :, :, :])[index[0], index[1], index[2]]
+            grad_val = value_gradients[index[0], index[1], index[2]]
             control = dynamics.optimal_control(None, None, grad_val)
             state = state + DT*dynamics(state, control, disturbance=np.array([0.]), time=None)
             state_traj.append(state)
@@ -121,8 +124,6 @@ def batched_rollouts_generator(value_fn, time_steps=TRAJ_TIME_STEPS, dt=DT):
     def batched_rollouts(states):
         costs = []
         for state in states:
-            # if SYSTEM_TYPE == 'DOUBLE_INT':
-            #     state = np.append(state, 1.0)
             state = np.append(state, THETA_VALUE)
             cost = np.array(rollout(state))
             costs.append(cost)
@@ -136,7 +137,7 @@ input_dim = 2
 oned_x = np.arange(-15, 15, 1.0)
 xv, yv = np.meshgrid(oned_x, oned_x)
 candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1)))
-range_x = [[-11, 6], [-6, 6]]
+range_x = [[-15, 15], [-15, 15]]
 noise_var = 0.001 
 cost_thres = 0.0 
 conf_thres = 0.9
@@ -146,13 +147,46 @@ bo_init_iters = NUM_BO_INIT_ITERS
 bols = BOLevelSet(f, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, conf_thres, length_scale, logdir)
 bols.initial_setup(bo_init_iters)
 print("\nCompleted BOLevelSet initial setup")
-# bo_iters = 150
-# bols.optimize_loop(bo_iters)
-level_set = bols.extract_levelset(candidates)
-print("Level Set\n", level_set)
+bo_iters = NUM_BO_ITERS
+if bo_iters != 0:
+    bols.optimize_loop(bo_iters)
+# level_set = bols.extract_levelset(candidates)
+# print("Level Set\n", level_set)
 # plt.figure()
 # plt.scatter([elem[0] for elem in level_set], [0*elem[0] for elem in level_set])
 # plt.savefig(logdir + f'/level_set.png')
+
+
+# Plot the GP overlaid with the 0-level set and the true BRT
+plt.figure()
+bols.m.plot()
+plt.contour(grid.coordinate_vectors[0],
+            grid.coordinate_vectors[1],
+            all_values[-1, :, :, THETA_INDEX].T,
+            levels=[0.0],
+            colors="black",
+            linewidths=3)
+beta = norm.ppf(bols.conf_thres)
+mu, var = bols.m.predict(candidates, full_cov=False)
+criterion = mu - beta * np.sqrt(var)
+criterion = criterion.reshape(len(oned_x), len(oned_x))
+plt.contour(oned_x,
+            oned_x,
+            criterion,
+            levels=[0.0],
+            colors="blue",
+            linewidths=3)
+plt.savefig(bols.logdir + f'/gp_final.png')
+plt.figure()
+x = bols.candidates[:, 0].flatten()
+y = bols.candidates[:, 1].flatten()
+original_cand_len = int(np.sqrt(len(x))) 
+original_x = x.reshape((original_cand_len, original_cand_len))[0, :]
+original_y = y.reshape((original_cand_len, original_cand_len))[:, 0]
+z = bols.acq.reshape((original_cand_len, original_cand_len))
+plt.contourf(original_x, original_y, BOLevelSet.normalize(z))
+plt.colorbar()
+plt.savefig(bols.logdir + f'/mile_final.png')
 
 
 
