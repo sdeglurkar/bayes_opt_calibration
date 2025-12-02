@@ -1,7 +1,6 @@
 import GPy
 import numpy as np
 from scipy.stats import norm
-# from IPython.display import display
 import matplotlib.pyplot as plt
 import dill
 
@@ -14,10 +13,6 @@ class BOLevelSet:
         self.range_x = range_x
         self.noise_var = noise_var
         self.length_scale = length_scale
-        # DO NOT instantiate kernel since it has issue pickling
-        # self.kernel = GPy.kern.Matern52(input_dim, variance=1., ARD=False)
-        # self.kernel = GPy.kern.Matern52(input_dim, lengthscale=length_scale, ARD=False)
-        #self.kernel = GPy.kern.RBF(input_dim,lengthscale=0.5)
         self.cost_thres = cost_thres
         self.conf_thres = conf_thres
         self.logdir = logdir
@@ -33,21 +28,23 @@ class BOLevelSet:
             X_init.append(X_i_init)
         self.X = np.stack(X_init, axis=1)
         self.Y = self.f(self.X) #+ np.random.randn(warmstart_sample,1)*np.sqrt(self.noise_var)
-        # self.m = GPy.models.GPRegression(
-        #     self.X, 
-        #     self.Y, 
-        #     GPy.kern.Matern52(self.input_dim, lengthscale=self.length_scale, ARD=False)
-        #     )
-        self.m = GPy.models.GPRegression(
-            self.X, 
-            self.Y, 
-            GPy.kern.Matern52(self.input_dim, lengthscale=self.length_scale, ARD=False),
-            noise_var = self.noise_var,
-            mean_function=self.init_fn
-            )
+        if self.init_fn is None:
+            self.m = GPy.models.GPRegression(
+                self.X, 
+                self.Y, 
+                GPy.kern.Matern52(self.input_dim, lengthscale=self.length_scale, ARD=False),
+                noise_var = self.noise_var
+                )
+        else:
+            self.m = GPy.models.GPRegression(
+                self.X, 
+                self.Y, 
+                GPy.kern.Matern52(self.input_dim, lengthscale=self.length_scale, ARD=False),
+                noise_var = self.noise_var,
+                mean_function=self.init_fn
+                )
         self.m.optimize(messages=True)
         self.acq = self.MILE(self.candidates, self.cost_thres, self.conf_thres)
-        # print("self.acq", self.acq)
         self.plot()
         self.save(self.logdir + f'/bols_init')
 
@@ -56,11 +53,8 @@ class BOLevelSet:
         objecs = np.zeros((len(x), 1))
         mu, cov = self.m.predict(x, full_cov=True, include_likelihood=True)
         var = np.diag(cov)
-        # print("cov", cov) # checking for order of magnitude of covariances
-        # print("var", var)
         for i in range(x.shape[0]):
             var_gpp = var - (cov[:, i]) ** 2 / (var[i] + self.noise_var)
-            # print("subzeros in var_gpp", np.sum(var_gpp < 0))
             zvec = np.sqrt(var[i] + self.noise_var) / np.abs(cov[:, i]) * (cost_thres - mu - beta * np.sqrt(var_gpp))
             objecs[i] = np.sum(norm.cdf(zvec))
         return objecs
@@ -72,7 +66,7 @@ class BOLevelSet:
     def optimize_once(self, plot=True, save=False, iter=0):
         max_acq_idx = np.unravel_index(np.argmax(self.acq, axis=None), self.acq.shape)
         x_next = self.candidates[max_acq_idx[0], :][np.newaxis, :]
-        y_next = self.f(x_next) #+ np.random.randn(1,1)*np.sqrt(self.noise_var)
+        y_next = self.f(x_next) 
         self.X = np.vstack((self.X, x_next))
         self.Y = np.vstack((self.Y, y_next))
         self.m.set_XY(X=self.X, Y=self.Y)
@@ -101,9 +95,6 @@ class BOLevelSet:
             plt.plot(self.candidates.flatten(), 0*self.candidates.flatten(), c='k')
             plt.savefig(self.logdir + f'/gp_{iter}.png')
         if self.input_dim == 2:
-            # fixed_dims = [(1, 5.0)]
-            # self.m.plot(fixed_inputs=fixed_dims)
-            # self.m.plot(fixed_inputs=fixed_dims, plot_limits=[(0, 10), (0, 10)], projection='2d')
             self.m.plot()
             plt.savefig(self.logdir + f'/gp_{iter}.png')
             plt.figure()

@@ -1,23 +1,20 @@
 import GPy
 import hj_reachability as hj
-import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
-import plotly.graph_objects as go
 from scipy.stats import norm
 
 from bolevelset import BOLevelSet
 
-THETA_INDEX = 0 #30
 THETA_VALUE = 0.0
 DUBINS_VELOCITY = 10.0
 DT = 0.01
 FINAL_TIME = -1.0
 TRAJ_TIME_STEPS = int(np.abs(FINAL_TIME)/DT)
 goal_R = 5
-NUM_BO_INIT_ITERS = 100 #30
-NUM_BO_ITERS = 100 #50
+NUM_BO_INIT_ITERS = 100 
+NUM_BO_ITERS = 0
 
 class DubinsCar(hj.ControlAndDisturbanceAffineDynamics):
 
@@ -85,7 +82,8 @@ grid = hj.Grid.from_lattice_parameters_and_boundary_conditions(hj.sets.Box(np.ar
                                                                            np.array([15., 15., 2 * np.pi])),
                                                                (51, 40, 50),
                                                                periodic_dims=2)
-
+index = grid.nearest_index([0., 0., THETA_VALUE])
+THETA_INDEX = index[2]
 
 ######### GET OPTIMAL VALUE FUNCTION -- BRT #########
 values = jnp.linalg.norm(grid.states[..., :2], axis=-1) - goal_R
@@ -150,14 +148,9 @@ print("\nCompleted BOLevelSet initial setup")
 bo_iters = NUM_BO_ITERS
 if bo_iters != 0:
     bols.optimize_loop(bo_iters)
-# level_set = bols.extract_levelset(candidates)
-# print("Level Set\n", level_set)
-# plt.figure()
-# plt.scatter([elem[0] for elem in level_set], [0*elem[0] for elem in level_set])
-# plt.savefig(logdir + f'/level_set.png')
 
 
-# Plot the GP overlaid with the 0-level set and the true BRT
+# Plot the GP overlaid with its 0-level set and the true BRT
 plt.figure()
 bols.m.plot()
 plt.contour(grid.coordinate_vectors[0],
@@ -168,14 +161,22 @@ plt.contour(grid.coordinate_vectors[0],
             linewidths=3)
 beta = norm.ppf(bols.conf_thres)
 mu, var = bols.m.predict(candidates, full_cov=False)
-criterion = mu - beta * np.sqrt(var)
+criterion = mu + beta * np.sqrt(var)  
+criterion = criterion.reshape(len(oned_x), len(oned_x))
+plt.contour(oned_x,
+            oned_x,
+            criterion,
+            levels=[0.0],
+            colors="lightblue",
+            linewidths=2)
+criterion = mu - beta * np.sqrt(var)  
 criterion = criterion.reshape(len(oned_x), len(oned_x))
 plt.contour(oned_x,
             oned_x,
             criterion,
             levels=[0.0],
             colors="blue",
-            linewidths=3)
+            linewidths=2)
 plt.savefig(bols.logdir + f'/gp_final.png')
 plt.figure()
 x = bols.candidates[:, 0].flatten()
@@ -205,12 +206,6 @@ if False:
                     levels=levels)
         if colorbar:
             plt.colorbar()
-        # plt.contour(grid.coordinate_vectors[0],
-        #             grid.coordinate_vectors[1],
-        #             target_values[:, :, THETA_INDEX].T,
-        #             levels=0,
-        #             colors="black",
-        #             linewidths=3)
         plt.contour(grid.coordinate_vectors[0],
                     grid.coordinate_vectors[1],
                     all_values[0, :, :, THETA_INDEX].T,
@@ -235,42 +230,6 @@ if False:
     render_frame(10, True)
     render_frame(0, True)
     plt.show()
-
-
-
-
-
-
-
-
-
-
-
-# time = 0.
-# target_time = -10 #-2.8
-# target_values = hj.step(solver_settings, dynamics, grid, time, values, target_time)
-
-# plt.jet()
-# plt.figure(figsize=(13, 8))
-# plt.contourf(grid.coordinate_vectors[0], grid.coordinate_vectors[1], target_values[:, :, THETA_INDEX].T)
-# plt.colorbar()
-# plt.contour(grid.coordinate_vectors[0],
-#             grid.coordinate_vectors[1],
-#             target_values[:, :, THETA_INDEX].T,
-#             levels=0,
-#             colors="black",
-#             linewidths=3)
-# plt.show()
-
-# fig = go.Figure(data=go.Isosurface(x=grid.states[..., 0].ravel(),
-#                              y=grid.states[..., 1].ravel(),
-#                              z=grid.states[..., 2].ravel(),
-#                              value=target_values.ravel(),
-#                              colorscale="jet",
-#                              isomin=0,
-#                              surface_count=1,
-#                              isomax=0))
-# fig.show()
 
 
 

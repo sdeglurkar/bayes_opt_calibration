@@ -169,7 +169,8 @@ class Air3D(Dynamics):
 
 # Added by Sampada
 class DoubleIntegrator(Dynamics):
-    def __init__(self, goalR:float, max_accel:float, set_mode:str, diff_model:bool, freeze_model: bool):
+    def __init__(self, goalR:float, max_accel:float, set_mode:str, diff_model:bool, freeze_model: bool,
+                        time_to_play_control=1000):
         self.goalR = goalR
         self.max_accel = max_accel
         self.set_mode = set_mode 
@@ -186,7 +187,7 @@ class DoubleIntegrator(Dynamics):
             diff_model=diff_model
         )
         self.last_control = None 
-        self.time_to_play_control = 1000
+        self.time_to_play_control = time_to_play_control
         self.control_counter = 0
     
     def state_test_range(self):
@@ -234,16 +235,16 @@ class DoubleIntegrator(Dynamics):
         # Keep playing a random control for time_to_play_control amount of steps
         if self.last_control is None:
             self.last_control = self.max_accel * ((torch.rand(1,1)*2)-1)
-            print("New control: ", self.last_control)
+            self.control_counter += 1
             return self.last_control
         else:
             if self.control_counter < self.time_to_play_control:
                 self.control_counter += 1
                 return self.last_control
             else:
-                self.control_counter = 0
+                self.control_counter = 0  # Reset
                 self.last_control = self.max_accel * ((torch.rand(1,1)*2)-1)
-                print("New control: ", self.last_control)
+                self.control_counter += 1
                 return self.last_control
 
     def optimal_disturbance(self, state, dvds):

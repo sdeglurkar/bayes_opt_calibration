@@ -8,16 +8,6 @@ import torch
 
 from bolevelset import BOLevelSet
 from dynamics import dynamics
-from scipy.io import loadmat
-
-# mat_contents = loadmat('runs/dubins3dexpertavoidtube/ground_truth.mat')
-# print(mat_contents['data'].shape)
-# # print(mat_contents['g'].shape)
-# print(mat_contents['tau'])
-# mat_contents = loadmat('runs/dubins3dexpertreachtube/ground_truth.mat')
-# print(mat_contents['data'].shape)
-# # print(mat_contents['g'].shape)
-# print(mat_contents['tau'])
 
 DT = 0.001
 DELTA = 0.01
@@ -33,10 +23,18 @@ set_mode = 'avoid'
 diff_model = True  # Doesn't matter
 freeze_model = False # Doesn't matter - to avoid a NotImplementedError
 max_accel = 1.0
-# system = dynamics.Dubins3D(goalR, velocity, omega_max, angle_alpha_factor, set_mode, diff_model, freeze_model)
-system = dynamics.DoubleIntegrator(goalR, max_accel, set_mode, diff_model, freeze_model)
+if SYSTEM_TYPE == 'DUBINS':
+    system = dynamics.Dubins3D(goalR, velocity, omega_max, angle_alpha_factor, set_mode, diff_model, freeze_model)
+elif SYSTEM_TYPE == 'DOUBLE_INT':
+    system = dynamics.DoubleIntegrator(goalR, max_accel, set_mode, diff_model, freeze_model)
+else:
+    raise NotImplementedError
 
 
+# This function is only used if one wants to produce rollouts using the 
+# optimal controller given some value function.
+# Pass in the value_fn into batched_rollouts_generator and then call
+# this function.
 def get_dvds(value_fn, state, delta=DELTA):
     state = np.array([state])
     grad = []
@@ -50,14 +48,12 @@ def get_dvds(value_fn, state, delta=DELTA):
     grad = torch.transpose(grad, 0, 1)
     return grad
 
-def batched_rollouts_generator(value_fn, system=system, time_steps=TIME_STEPS, dt=DT):
+def batched_rollouts_generator(system=system, time_steps=TIME_STEPS, dt=DT):
     def rollout(state, plot_traj=True):
         state = torch.Tensor(state) 
         state_traj = [state]
         curr_state = state
-        for t in range(time_steps):
-            # dvds = get_dvds(value_fn, curr_state)
-            # ctrl = system.optimal_control(curr_state, dvds)
+        for _ in range(time_steps):
             ctrl = system.random_control()
             dsdt = system.dsdt(curr_state, ctrl, disturbance=None)
             next_state = system.equivalent_wrapped_state(curr_state + dt*dsdt)
@@ -67,12 +63,6 @@ def batched_rollouts_generator(value_fn, system=system, time_steps=TIME_STEPS, d
 
         cost = system.cost_fn(state_traj)
         print("State: ", state, " Cost: ", cost)
-        print("\n")
-        length_of_traj = state_traj.shape[0]
-        print("State traj: ", state_traj[2, :], state_traj[int(length_of_traj/3), :], \
-                state_traj[int(length_of_traj/2), :], state_traj[int(2*length_of_traj/3), :], \
-                state_traj[-1, :])
-        print("\n")
 
         if plot_traj:
             if SYSTEM_TYPE == 'DOUBLE_INT':
@@ -109,37 +99,41 @@ def batched_rollouts_generator(value_fn, system=system, time_steps=TIME_STEPS, d
     
     return batched_rollouts
 
-
-# mean_function = GPy.core.Mapping(3,1)
-# mean_function = GPy.core.Mapping(2,1)
-mean_function = GPy.core.Mapping(1,1)
-# mean_function.f = lambda x: np.expand_dims(x[:, 0]**2 + x[:, 1]**2 - 1, -1) # lambda x: np.expand_dims(x[:, 0]**2 + x[:, 1]**2 + x[:, 2]**2 - 1, -1)
-mean_function.f = lambda x: np.expand_dims(x[:, 0]**2 - 1, -1)
+ 
+if SYSTEM_TYPE == 'DUBINS':
+    mean_function = GPy.core.Mapping(3,1)
+    mean_function.f = lambda x: np.expand_dims(x[:, 0]**2 + x[:, 1]**2 - 1, -1) 
+elif SYSTEM_TYPE == 'DOUBLE_INT':
+    mean_function = GPy.core.Mapping(1,1)
+    mean_function.f = lambda x: np.expand_dims(x[:, 0]**2 - 1, -1)
 mean_function.update_gradients = lambda a,b: 0
 mean_function.gradients_X = lambda a,b: 0
 value_fn = mean_function.f
 
 
 f = batched_rollouts_generator(value_fn) 
-input_dim = 1 #3
-# oned_x = np.arange(-5, 5, 1)
-oned_x = np.arange(-5, 5, 0.1)
-theta_grid = np.arange(-np.pi, np.pi, 1.0)
-# xv, yv, thetav = np.meshgrid(oned_x, oned_x, theta_grid)
-# candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1), thetav.reshape(-1, 1)))
-# xv, yv = np.meshgrid(oned_x, oned_x)
-xv = np.meshgrid(oned_x)[0]
-# candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1)))
-candidates = xv.reshape(-1, 1)
+if SYSTEM_TYPE == 'DUBINS':
+    input_dim = 3
+    oned_x = np.arange(-5, 5, 1)
+    theta_grid = np.arange(-np.pi, np.pi, 1.0)
+    xv, yv, thetav = np.meshgrid(oned_x, oned_x, theta_grid)
+    candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1), thetav.reshape(-1, 1)))
+    range_x = [[-5, 5], [-5, 5], [-np.pi, np.pi]]
+    logdir = 'dubins_model_dir'
+elif SYSTEM_TYPE == 'DOUBLE_INT':
+    input_dim = 1 
+    oned_x = np.arange(-5, 5, 0.1)
+    xv = np.meshgrid(oned_x)[0]
+    candidates = xv.reshape(-1, 1)
+    range_x = [[-5, 5]]
+    logdir = 'dblint_model_dir'
+else:
+    raise NotImplementedError
 
-# range_x = [[-5, 5], [-5, 5], [-np.pi, np.pi]]
-# range_x = [[-5, 5], [-5, 5]]
-range_x = [[-5, 5]]
 noise_var = 0.001 #1e-15
 cost_thres = 0.0 
 conf_thres = 0.9
 length_scale = 0.25
-logdir = 'dblint_model_dir'
 bo_init_iters = 20
 bols = BOLevelSet(f, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, conf_thres, length_scale, logdir)
 bols.initial_setup(bo_init_iters)
@@ -147,27 +141,12 @@ print("\nCompleted BOLevelSet initial setup")
 bo_iters = 150
 bols.optimize_loop(bo_iters)
 
-# set_theta_grid = theta_grid * 0
-# xv, yv, thetav = np.meshgrid(oned_x, oned_x, set_theta_grid)
-# candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1), thetav.reshape(-1, 1)))
+if SYSTEM_TYPE == 'DUBINS':
+    set_theta_grid = theta_grid * 0
+    xv, yv, thetav = np.meshgrid(oned_x, oned_x, set_theta_grid)
+    candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1), thetav.reshape(-1, 1)))
 level_set = bols.extract_levelset(candidates)
-# print("Level Set\n", bols.extract_levelset(candidates))
 print("Level Set\n", level_set)
 plt.figure()
 plt.scatter([elem[0] for elem in level_set], [0*elem[0] for elem in level_set])
 plt.savefig(logdir + f'/level_set.png')
-
-# def new_value_fn_generator(bols):
-#     def new_value_fn(state):
-#         mu, cov = bols.m.predict(state, full_cov=True, include_likelihood=True)
-#         return mu
-#     return new_value_fn
-
-# f = batched_rollouts_generator(new_value_fn_generator(bols)) 
-# bo_init_iters = 10
-# bols = BOLevelSet(f, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, conf_thres, length_scale, logdir)
-# bols.initial_setup(bo_init_iters)
-# print("\nCompleted BOLevelSet initial setup")
-
-
-print("\nYAY!")
