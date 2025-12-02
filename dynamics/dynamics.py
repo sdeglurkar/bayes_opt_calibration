@@ -167,6 +167,97 @@ class Air3D(Dynamics):
             'z_axis_idx': 2,
         }
 
+# Added by Sampada
+class DoubleIntegrator(Dynamics):
+    def __init__(self, goalR:float, max_accel:float, set_mode:str, diff_model:bool, freeze_model: bool,
+                        time_to_play_control=1000):
+        self.goalR = goalR
+        self.max_accel = max_accel
+        self.set_mode = set_mode 
+        self.freeze_model = freeze_model
+        assert self.set_mode in ['reach', 'avoid']
+        input_dim = 0  # Not sure what this is
+        super().__init__(
+            state_dim=2, input_dim=input_dim, control_dim=1, disturbance_dim=0,
+            state_mean=[0, 0],   # Bunch of random numbers all below
+            state_var=[1, 1],
+            value_mean=0.25, 
+            value_var=0.5, 
+            value_normto=0.02,
+            diff_model=diff_model
+        )
+        self.last_control = None 
+        self.time_to_play_control = time_to_play_control
+        self.control_counter = 0
+    
+    def state_test_range(self):
+        return [
+            [-1, 1],
+            [-1, 1],
+        ]
+
+    def equivalent_wrapped_state(self, state):
+        return state 
+    
+    # \dot x1    = x2
+    # \dot x2    = u
+    def dsdt(self, state, control, disturbance):
+        if self.freeze_model:
+            raise NotImplementedError
+        dsdt = torch.zeros_like(state)
+        dsdt[..., 0] = state[..., 1]
+        dsdt[..., 1] = control[..., 0]
+        return dsdt
+    
+    def boundary_fn(self, state):
+        return torch.norm(state[..., :1], dim=-1) - self.goalR
+
+    def cost_fn(self, state_traj):
+        return torch.min(self.boundary_fn(state_traj), dim=-1).values
+    
+    def hamiltonian(self, state, dvds):
+        # Function not tested
+        if self.freeze_model:
+            raise NotImplementedError
+        if self.set_mode == 'reach':
+            return state[..., 1] * dvds[..., 0] - self.max_accel * torch.abs(dvds[..., 1]) 
+        elif self.set_mode == 'avoid':
+            return state[..., 1] * dvds[..., 0] + self.max_accel * torch.abs(dvds[..., 1]) 
+
+    def optimal_control(self, state, dvds):
+        # Function not tested
+        if self.set_mode == 'reach':
+            return (-self.max_accel*torch.sign(dvds[..., 1]))[..., None] # Minimize Hamiltonian
+        elif self.set_mode == 'avoid':
+            return (self.max_accel*torch.sign(dvds[..., 1]))[..., None] # Maximize Hamiltonian
+
+    def random_control(self):
+        # Keep playing a random control for time_to_play_control amount of steps
+        if self.last_control is None:
+            self.last_control = self.max_accel * ((torch.rand(1,1)*2)-1)
+            self.control_counter += 1
+            return self.last_control
+        else:
+            if self.control_counter < self.time_to_play_control:
+                self.control_counter += 1
+                return self.last_control
+            else:
+                self.control_counter = 0  # Reset
+                self.last_control = self.max_accel * ((torch.rand(1,1)*2)-1)
+                self.control_counter += 1
+                return self.last_control
+
+    def optimal_disturbance(self, state, dvds):
+        return 0
+    
+    def plot_config(self):
+        return {
+            'state_slices': [0, 0],
+            'state_labels': ['x', 'y'],
+            'x_axis_idx': 0,
+            'y_axis_idx': 1
+        }
+
 class Dubins3D(Dynamics):
     def __init__(self, goalR:float, velocity:float, omega_max:float, angle_alpha_factor:float, set_mode:str, diff_model:bool, freeze_model: bool):
         self.goalR = goalR
@@ -227,9 +318,12 @@ class Dubins3D(Dynamics):
 
     def optimal_control(self, state, dvds):
         if self.set_mode == 'reach':
-            return (-self.omega_max*torch.sign(dvds[..., 2]))[..., None]
+            return (-self.omega_max*torch.sign(dvds[..., 2]))[..., None] # Minimize Hamiltonian
         elif self.set_mode == 'avoid':
-            return (self.omega_max*torch.sign(dvds[..., 2]))[..., None]
+            return (self.omega_max*torch.sign(dvds[..., 2]))[..., None] # Maximize Hamiltonian
+
+    def random_control(self):
+        return self.omega_max * ((torch.rand(1,1)*2)-1)
 
     def optimal_disturbance(self, state, dvds):
         return 0
