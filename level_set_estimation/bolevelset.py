@@ -27,7 +27,7 @@ class BOLevelSet:
             )
             X_init.append(X_i_init)
         self.X = np.stack(X_init, axis=1)
-        self.Y = self.f(self.X) #+ np.random.randn(warmstart_sample,1)*np.sqrt(self.noise_var)
+        self.Y = self.f(self.X) 
         if self.init_fn is None:
             self.m = GPy.models.GPRegression(
                 self.X, 
@@ -47,6 +47,39 @@ class BOLevelSet:
         self.acq = self.MILE(self.candidates, self.cost_thres, self.conf_thres)
         self.plot()
         self.save(self.logdir + f'/bols_init')
+    
+    def initial_setup_given_data(self, X, Y):
+        self.X = X
+        self.Y = Y
+        if self.init_fn is None:
+            self.m = GPy.models.GPRegression(
+                X, 
+                Y, 
+                GPy.kern.Matern52(self.input_dim, lengthscale=self.length_scale, ARD=False),
+                noise_var = self.noise_var
+                )
+        else:
+            self.m = GPy.models.GPRegression(
+                X, 
+                Y, 
+                GPy.kern.Matern52(self.input_dim, lengthscale=self.length_scale, ARD=False),
+                noise_var = self.noise_var,
+                mean_function=self.init_fn
+                )
+        self.m.optimize(messages=True)
+        # self.acq = self.MILE(self.candidates, self.cost_thres, self.conf_thres)
+        self.plot(plot_acq=False)
+        self.save(self.logdir + f'/error_gp_init')
+
+    def optimize_given_one_more_point(self, x, y, plot=True, save=False, iter=0):
+        self.X = np.vstack((self.X, x))
+        self.Y = np.vstack((self.Y, y))
+        self.m.set_XY(X=self.X, Y=self.Y)
+        self.m.optimize(messages=True)
+        if plot:
+            self.plot(iter=iter, plot_acq=False)
+        if save:
+            self.save(self.logdir + f'/bols_{iter}')
 
     def MILE(self, x, cost_thres, conf_thres):
         beta = norm.ppf(conf_thres)
@@ -88,25 +121,28 @@ class BOLevelSet:
         criterion = mu + beta * np.sqrt(var)
         return x_test[(criterion < self.cost_thres).squeeze()]
 
-    def plot(self, iter=0):
+    def plot(self, iter=0, plot_acq=True):
         if self.input_dim == 1:
             self.m.plot(plot_limits=np.array([self.range_x[0][0]-0.25, self.range_x[0][1]+0.25]))
-            plt.plot(self.candidates.flatten(), BOLevelSet.normalize(self.acq.flatten(), 10), c='orange')
+            if plot_acq:
+                plt.plot(self.candidates.flatten(), BOLevelSet.normalize(self.acq.flatten(), 10), c='orange')
+            # 0-line
             plt.plot(self.candidates.flatten(), 0*self.candidates.flatten(), c='k')
             plt.savefig(self.logdir + f'/gp_{iter}.png')
         if self.input_dim == 2:
             self.m.plot()
             plt.savefig(self.logdir + f'/gp_{iter}.png')
             plt.figure()
-            x = self.candidates[:, 0].flatten()
-            y = self.candidates[:, 1].flatten()
-            original_cand_len = int(np.sqrt(len(x)))
-            original_x = x.reshape((original_cand_len, original_cand_len))[0, :]
-            original_y = y.reshape((original_cand_len, original_cand_len))[:, 0]
-            z = self.acq.reshape((original_cand_len, original_cand_len))
-            plt.contourf(original_x, original_y, BOLevelSet.normalize(z))
-            plt.colorbar()
-            plt.savefig(self.logdir + f'/mile_{iter}.png')
+            if plot_acq:
+                x = self.candidates[:, 0].flatten()
+                y = self.candidates[:, 1].flatten()
+                original_cand_len = int(np.sqrt(len(x)))
+                original_x = x.reshape((original_cand_len, original_cand_len))[0, :]
+                original_y = y.reshape((original_cand_len, original_cand_len))[:, 0]
+                z = self.acq.reshape((original_cand_len, original_cand_len))
+                plt.contourf(original_x, original_y, BOLevelSet.normalize(z))
+                plt.colorbar()
+                plt.savefig(self.logdir + f'/mile_{iter}.png')
         if self.input_dim == 3:
             fixed_dims = [(2, 0.0)]
             self.m.plot(fixed_inputs=fixed_dims, projection='2d')
