@@ -13,7 +13,7 @@ DT = 0.01
 FINAL_TIME = -1.0
 TRAJ_TIME_STEPS = int(np.abs(FINAL_TIME)/DT)
 goal_R = 5
-NUM_BO_INIT_ITERS = 50 
+NUM_BO_INIT_ITERS = 10 
 NUM_BO_ITERS = 0
 SIZE_CALIBRATION_SET = 100
 
@@ -196,7 +196,8 @@ plt.savefig(bols.logdir + f'/gp_final.png')
 plt.figure()
 x = bols.candidates[:, 0].flatten()
 y = bols.candidates[:, 1].flatten()
-original_cand_len = int(np.sqrt(len(x))) 
+length_of_candidates = len(x)
+original_cand_len = int(np.sqrt(len(x)))
 original_x = x.reshape((original_cand_len, original_cand_len))[0, :]
 original_y = y.reshape((original_cand_len, original_cand_len))[:, 0]
 z = bols.acq.reshape((original_cand_len, original_cand_len))
@@ -215,12 +216,44 @@ logdir = 'error_gp_model_dir'
 error_gp = BOLevelSet(f, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, conf_thres, length_scale, logdir)
 error_gp.initial_setup_given_data(calibration_points, errors)
 
+
+shaped_candidates = candidates.copy()
+shaped_candidates = shaped_candidates.reshape((original_cand_len, original_cand_len, 2))
+
+# Error GP
 error_mu, error_var = error_gp.m.predict(candidates, full_cov=False)
-max_acq_idx = np.unravel_index(np.argmax(error_mu), candidates.shape)
-x_next = candidates[max_acq_idx[0], :][np.newaxis, :]
-print(x_next)
+# max_acq_idx = np.unravel_index(np.argmax(error_mu), candidates.shape)
+# x_next = candidates[max_acq_idx[0], :][np.newaxis, :]
+# print(x_next)
 sorted_indices = np.argsort(np.squeeze(error_mu))[::-1]
-acq_idx = np.unravel_index(sorted_indices[0], candidates.shape)
-x_next = candidates[acq_idx[0], :][np.newaxis, :]
-print(x_next)
+acq_idx = np.unravel_index(sorted_indices[0], (original_cand_len, original_cand_len))
+x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
+print("ERROR GP", x_next, error_mu[sorted_indices[0]])
+acq_idx = np.unravel_index(sorted_indices[1], (original_cand_len, original_cand_len))
+x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
+print(x_next, error_mu[sorted_indices[1]])
+acq_idx = np.unravel_index(sorted_indices[2], (original_cand_len, original_cand_len))
+x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
+print(x_next, error_mu[sorted_indices[2]])
+acq_idx = np.unravel_index(sorted_indices[int(length_of_candidates/2)], (original_cand_len, original_cand_len))
+x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
+print(x_next, error_mu[sorted_indices[int(length_of_candidates/2)]])
+
+# MILE
+# max_acq_idx = np.unravel_index(np.argmax(bols.acq, axis=None), candidates.shape)
+# x_next = candidates[max_acq_idx[0], :][np.newaxis, :]
+# print(x_next)
+sorted_indices = np.argsort(np.squeeze(bols.acq))[::-1]
+acq_idx = np.unravel_index(sorted_indices[0], (original_cand_len, original_cand_len))
+x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
+print("MILE", x_next, bols.acq[sorted_indices[0]])
+acq_idx = np.unravel_index(sorted_indices[1], (original_cand_len, original_cand_len))
+x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
+print(x_next, bols.acq[sorted_indices[1]])
+acq_idx = np.unravel_index(sorted_indices[2], (original_cand_len, original_cand_len))
+x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
+print(x_next, bols.acq[sorted_indices[2]])
+acq_idx = np.unravel_index(sorted_indices[int(length_of_candidates/2)], (original_cand_len, original_cand_len))
+x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
+print(x_next, bols.acq[sorted_indices[int(length_of_candidates/2)]])
 
