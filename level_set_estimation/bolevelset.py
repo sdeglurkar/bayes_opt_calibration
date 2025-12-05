@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 import dill
 
 class BOLevelSet:
-    def __init__(self, f, init_fn, input_dim, candidates, range_x, noise_var, cost_thres, conf_thres, length_scale, logdir=None):
+    def __init__(self, f, init_fn, input_dim, candidates, range_x, noise_var, cost_thres, conf_thres, 
+                length_scale, logdir=None):
         self.f = f
         self.init_fn = init_fn
         self.input_dim = input_dim
@@ -16,6 +17,7 @@ class BOLevelSet:
         self.cost_thres = cost_thres
         self.conf_thres = conf_thres
         self.logdir = logdir
+        self.acq_cache = []
 
     def initial_setup(self, warmstart_sample):
         X_init = []
@@ -48,7 +50,7 @@ class BOLevelSet:
         self.plot()
         self.save(self.logdir + f'/bols_init')
     
-    def initial_setup_given_data(self, X, Y):
+    def initial_setup_given_data(self, X, Y, plot_iter=None):
         self.X = X
         self.Y = Y
         if self.init_fn is None:
@@ -68,7 +70,7 @@ class BOLevelSet:
                 )
         self.m.optimize(messages=True)
         # self.acq = self.MILE(self.candidates, self.cost_thres, self.conf_thres)
-        self.plot(plot_acq=False)
+        self.plot(iter=plot_iter, plot_acq=False)
         self.save(self.logdir + f'/error_gp_init')
 
     def optimize_given_one_more_point(self, x, y, plot=True, save=False, iter=0):
@@ -96,24 +98,86 @@ class BOLevelSet:
     def normalize(data, scale=1):
         return (data-np.min(data))/(np.max(data)-np.min(data)) * scale
 
-    def optimize_once(self, plot=True, save=False, iter=0):
-        max_acq_idx = np.unravel_index(np.argmax(self.acq, axis=None), self.acq.shape)
-        x_next = self.candidates[max_acq_idx[0], :][np.newaxis, :]
+    def optimize_once(self, original_cand_len, shaped_candidates, index, plot=True, save=False, iter=0):
+        # max_acq_idx = np.unravel_index(np.argmax(self.acq, axis=None), self.acq.shape)
+        # x_next = self.candidates[max_acq_idx[0], :][np.newaxis, :]
+        sorted_indices = np.argsort(np.squeeze(self.acq))[::-1]
+        acq_idx = np.unravel_index(sorted_indices[index], (original_cand_len, original_cand_len))
+        x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
+        print("MILE", x_next, self.acq[sorted_indices[index]])
+        self.acq_cache.append(x_next)
         y_next = self.f(x_next) 
         self.X = np.vstack((self.X, x_next))
         self.Y = np.vstack((self.Y, y_next))
         self.m.set_XY(X=self.X, Y=self.Y)
         self.m.optimize(messages=True)
-        self.acq = self.MILE(self.candidates, self.cost_thres, self.conf_thres)
+        # self.acq = self.MILE(self.candidates, self.cost_thres, self.conf_thres)
         if plot:
-            self.plot(iter=iter)
+            self.plot(iter=iter, plot_acq=False)
+        if save:
+            self.save(self.logdir + f'/bols_{iter}')
+    
+    def optimize_once_error_gp(self, error_gp, original_cand_len, candidates, shaped_candidates,
+                                index, plot=True, save=False, iter=0):
+        error_mu, _ = error_gp.m.predict(candidates, full_cov=False)
+        sorted_indices = np.argsort(np.squeeze(error_mu))[::-1]
+        acq_idx = np.unravel_index(sorted_indices[index], (original_cand_len, original_cand_len))
+        x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
+        print("ERROR GP", x_next, error_mu[sorted_indices[index]])
+        self.acq_cache.append(x_next)
+        y_next = self.f(x_next) 
+        self.X = np.vstack((self.X, x_next))
+        self.Y = np.vstack((self.Y, y_next))
+        self.m.set_XY(X=self.X, Y=self.Y)
+        self.m.optimize(messages=True)
+        if plot:
+            self.plot(iter=iter, plot_acq=False)
         if save:
             self.save(self.logdir + f'/bols_{iter}')
         
-    def optimize_loop(self, iters, plot_every=10, save_every=10):
+    def optimize_loop(self, original_cand_len, shaped_candidates, iters, plot_every=10, save_every=10):
+        # Schedule
+        indices = []
+        for i in range(iters):
+            if i < iters/2:
+                indices.append(int(original_cand_len/2))  # Median error
+            else:
+                indices.append(0) # Worst error
         for i in range(iters):
             print(f"optimizing step {i}")
-            self.optimize_once(plot=((i+1) % plot_every == 0), save=((i+1) % save_every == 0), iter=i)
+            index = indices[i]
+            self.optimize_once(original_cand_len, shaped_candidates, index, 
+                            plot=((i+1) % plot_every == 0), save=((i+1) % save_every == 0), iter=i)
+        print(np.array(self.acq_cache))
+
+    def optimize_loop_error_gp(self, error_gp, original_cand_len, candidates, shaped_candidates,
+                                calibration_points, costs_at_calibration_points, beta,
+                                iters, plot_every=10, save_every=10):
+        # Schedule
+        indices = []
+        ctr1 = 0
+        ctr2 = 0
+        for i in range(iters):
+            if i < iters/3:
+                indices.append(-1 - ctr1)  # Best error
+                ctr1 += 1
+            elif i < iters/2:
+                indices.append(int(original_cand_len/2) - ctr2)  # Median error
+                ctr2 += 1
+            else:
+                indices.append(0) # Worst error
+
+        for i in range(iters):
+            print(f"optimizing step {i}")
+            index = indices[i]
+            self.optimize_once_error_gp(error_gp, original_cand_len, candidates, shaped_candidates, index,
+                                plot=((i+1) % plot_every == 0), save=((i+1) % save_every == 0), iter=i)
+            # Re-fit error GP
+            mu, var = self.m.predict(calibration_points, full_cov=False)
+            criterion = mu - beta * np.sqrt(var) # Conservative bc more likely to say state is in BRT
+            errors = np.abs(criterion - costs_at_calibration_points)
+            error_gp.initial_setup_given_data(calibration_points, errors, plot_iter=i)
+        print(np.array(self.acq_cache))
 
     def extract_levelset(self, x_test):
         beta = norm.ppf(self.conf_thres)

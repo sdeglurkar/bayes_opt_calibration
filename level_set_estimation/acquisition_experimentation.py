@@ -14,7 +14,7 @@ FINAL_TIME = -1.0
 TRAJ_TIME_STEPS = int(np.abs(FINAL_TIME)/DT)
 goal_R = 5
 NUM_BO_INIT_ITERS = 10 
-NUM_BO_ITERS = 0
+NUM_BO_ITERS = 30
 SIZE_CALIBRATION_SET = 100
 
 class DubinsCar(hj.ControlAndDisturbanceAffineDynamics):
@@ -159,7 +159,8 @@ beta = norm.ppf(conf_thres)
 length_scale = 0.25
 logdir = 'acq_exp_model_dir'
 bo_init_iters = NUM_BO_INIT_ITERS
-bols = BOLevelSet(f, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, conf_thres, length_scale, logdir)
+bols = BOLevelSet(f, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, 
+                    conf_thres, length_scale, logdir)
 bols.initial_setup(bo_init_iters)
 print("\nCompleted BOLevelSet initial setup")
 # bo_iters = NUM_BO_ITERS
@@ -216,10 +217,15 @@ logdir = 'error_gp_model_dir'
 error_gp = BOLevelSet(f, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, conf_thres, length_scale, logdir)
 error_gp.initial_setup_given_data(calibration_points, errors)
 
-
 shaped_candidates = candidates.copy()
 shaped_candidates = shaped_candidates.reshape((original_cand_len, original_cand_len, 2))
 
+bo_iters = NUM_BO_ITERS
+if bo_iters != 0:
+    bols.optimize_loop_error_gp(error_gp, original_cand_len, candidates, shaped_candidates, 
+                                calibration_points, costs_at_calibration_points, beta, bo_iters)
+
+'''
 # Error GP
 error_mu, error_var = error_gp.m.predict(candidates, full_cov=False)
 # max_acq_idx = np.unravel_index(np.argmax(error_mu), candidates.shape)
@@ -256,4 +262,45 @@ print(x_next, bols.acq[sorted_indices[2]])
 acq_idx = np.unravel_index(sorted_indices[int(length_of_candidates/2)], (original_cand_len, original_cand_len))
 x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
 print(x_next, bols.acq[sorted_indices[int(length_of_candidates/2)]])
+'''
 
+
+
+# Plot the GP overlaid with its 0-level set and the true BRT
+plt.figure()
+bols.m.plot()
+plt.contour(grid.coordinate_vectors[0],
+            grid.coordinate_vectors[1],
+            all_values[-1, :, :, THETA_INDEX].T,
+            levels=[0.0],
+            colors="black",
+            linewidths=3)
+mu, var = bols.m.predict(candidates, full_cov=False)
+criterion = mu + beta * np.sqrt(var)  
+criterion = criterion.reshape(len(oned_x), len(oned_x))
+plt.contour(oned_x,
+            oned_x,
+            criterion,
+            levels=[0.0],
+            colors="lightblue",
+            linewidths=2)
+criterion = mu - beta * np.sqrt(var)  
+criterion = criterion.reshape(len(oned_x), len(oned_x))
+plt.contour(oned_x,
+            oned_x,
+            criterion,
+            levels=[0.0],
+            colors="blue",
+            linewidths=2)
+plt.savefig(bols.logdir + f'/gp_final.png')
+plt.figure()
+x = bols.candidates[:, 0].flatten()
+y = bols.candidates[:, 1].flatten()
+length_of_candidates = len(x)
+original_cand_len = int(np.sqrt(len(x)))
+original_x = x.reshape((original_cand_len, original_cand_len))[0, :]
+original_y = y.reshape((original_cand_len, original_cand_len))[:, 0]
+z = bols.acq.reshape((original_cand_len, original_cand_len))
+plt.contourf(original_x, original_y, BOLevelSet.normalize(z))
+plt.colorbar()
+plt.savefig(bols.logdir + f'/mile_final.png')
