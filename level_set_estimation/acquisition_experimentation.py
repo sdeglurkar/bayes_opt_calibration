@@ -16,6 +16,8 @@ goal_R = 5
 NUM_BO_INIT_ITERS = 10 
 NUM_BO_ITERS = 30
 SIZE_CALIBRATION_SET = 100
+RANDOM_SEED = 17
+RNG = np.random.default_rng(RANDOM_SEED)
 
 class DubinsCar(hj.ControlAndDisturbanceAffineDynamics):
 
@@ -77,7 +79,6 @@ class DubinsCar(hj.ControlAndDisturbanceAffineDynamics):
             [0.]
         ]) 
 
-
 dynamics = DubinsCar(DUBINS_VELOCITY)
 grid = hj.Grid.from_lattice_parameters_and_boundary_conditions(hj.sets.Box(np.array([-15., -15., 0.]),
                                                                            np.array([15., 15., 2 * np.pi])),
@@ -86,12 +87,10 @@ grid = hj.Grid.from_lattice_parameters_and_boundary_conditions(hj.sets.Box(np.ar
 index = grid.nearest_index([0., 0., THETA_VALUE])
 THETA_INDEX = index[2]
 
-######### GET OPTIMAL VALUE FUNCTION -- BRT #########
+########################### GET OPTIMAL VALUE FUNCTION -- BRT ###########################
 values = jnp.linalg.norm(grid.states[..., :2], axis=-1) - goal_R
-
 solver_settings = hj.SolverSettings.with_accuracy("very_high",
                                                   hamiltonian_postprocessor=hj.solver.backwards_reachable_tube)
-
 
 times = np.linspace(0, FINAL_TIME, 100) 
 initial_values = values
@@ -126,23 +125,91 @@ def batched_rollouts_generator(value_fn, time_steps=TRAJ_TIME_STEPS, dt=DT):
     
     return batched_rollouts
 
-######### EVALUATE COSTS FOR CALIBRATION SET #########
-f = batched_rollouts_generator(all_values)
-range_x = [[-15, 15], [-15, 15]]
-X_init = []
-for i in range(2):
-    X_i_init = np.random.uniform(
-        range_x[i][0],
-        range_x[i][1],
-        (SIZE_CALIBRATION_SET,)
-    )
-    X_init.append(X_i_init)
-calibration_points = np.stack(X_init, axis=1)
-print("Evaluating costs for calibration set")
-costs_at_calibration_points = f(calibration_points)
-print("Done evaluating costs for calibration set!")
+def evaluate_costs_for_calibration_set(range_x, rng, f, size_calibration_set): 
+    X_init = []
+    for i in range(2):
+        # X_i_init = np.random.uniform(
+        #     range_x[i][0],
+        #     range_x[i][1],
+        #     (SIZE_CALIBRATION_SET,)
+        # )
+        X_i_init = rng.uniform(
+            range_x[i][0],
+            range_x[i][1],
+            (size_calibration_set,)
+        )
+        X_init.append(X_i_init)
+    calibration_points = np.stack(X_init, axis=1)
+    print("Evaluating costs for calibration set")
+    costs_at_calibration_points = f(calibration_points)
+    print("Done evaluating costs for calibration set!")
 
-######### FIT GAUSSIAN PROCESS #########
+    return calibration_points, costs_at_calibration_points
+
+def plot_main_gp(bols, grid, candidates, oned_x, fig_name, fig_name_colorbar, mile_name):
+    plt.figure()
+    # bols.m.plot()
+    plt.contour(grid.coordinate_vectors[0],
+                grid.coordinate_vectors[1],
+                all_values[-1, :, :, THETA_INDEX].T,
+                levels=[0.0],
+                colors="black",
+                linewidths=3)
+    mu, var = bols.m.predict(candidates, full_cov=False)
+    criterion = mu + beta * np.sqrt(var)  
+    criterion = criterion.reshape(len(oned_x), len(oned_x))
+    plt.contour(oned_x,
+                oned_x,
+                criterion,
+                levels=[0.0],
+                colors="lightblue",
+                linewidths=2)
+    criterion = mu - beta * np.sqrt(var)  
+    criterion = criterion.reshape(len(oned_x), len(oned_x))
+    plt.contour(oned_x,
+                oned_x,
+                criterion,
+                levels=[0.0],
+                colors="blue",
+                linewidths=2)
+    plt.savefig(fig_name)
+    plt.figure()
+    plt.contourf(oned_x,
+                oned_x,
+                criterion)
+    plt.colorbar()
+    plt.savefig(fig_name_colorbar)
+    plt.figure()
+    x = bols.candidates[:, 0].flatten()
+    y = bols.candidates[:, 1].flatten()
+    original_cand_len = int(np.sqrt(len(x)))
+    original_x = x.reshape((original_cand_len, original_cand_len))[0, :]
+    original_y = y.reshape((original_cand_len, original_cand_len))[:, 0]
+    z = bols.acq.reshape((original_cand_len, original_cand_len))
+    plt.contourf(original_x, original_y, BOLevelSet.normalize(z))
+    plt.colorbar()
+    plt.savefig(mile_name)
+
+    return original_cand_len
+
+def plot_error_gp(fig_name):
+    mu, var = error_gp.m.predict(candidates, full_cov=False)
+    criterion = mu 
+    criterion = criterion.reshape(len(oned_x), len(oned_x))
+    plt.figure()
+    plt.contourf(oned_x,
+                oned_x,
+                criterion)
+    plt.colorbar()
+    plt.savefig(fig_name)
+
+########################### EVALUATE COSTS FOR CALIBRATION SET ###########################
+range_x = [[-15, 15], [-15, 15]]
+f = batched_rollouts_generator(all_values)
+calibration_points, costs_at_calibration_points = \
+    evaluate_costs_for_calibration_set(range_x, RNG, f, SIZE_CALIBRATION_SET)
+
+########################### FIT GAUSSIAN PROCESS ###########################
 mean_function = GPy.core.Mapping(2,1)
 mean_function.f = lambda x: np.expand_dims(x[:, 0]**2 + x[:, 1]**2 - goal_R, -1)
 mean_function.update_gradients = lambda a,b: 0
@@ -161,53 +228,16 @@ logdir = 'acq_exp_model_dir'
 bo_init_iters = NUM_BO_INIT_ITERS
 bols = BOLevelSet(f, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, 
                     conf_thres, length_scale, logdir)
-bols.initial_setup(bo_init_iters)
+bols.initial_setup(bo_init_iters, RNG)
 print("\nCompleted BOLevelSet initial setup")
-# bo_iters = NUM_BO_ITERS
-# if bo_iters != 0:
-#     bols.optimize_loop(bo_iters)
 
-# Plot the GP overlaid with its 0-level set and the true BRT
-plt.figure()
-bols.m.plot()
-plt.contour(grid.coordinate_vectors[0],
-            grid.coordinate_vectors[1],
-            all_values[-1, :, :, THETA_INDEX].T,
-            levels=[0.0],
-            colors="black",
-            linewidths=3)
-mu, var = bols.m.predict(candidates, full_cov=False)
-criterion = mu + beta * np.sqrt(var)  
-criterion = criterion.reshape(len(oned_x), len(oned_x))
-plt.contour(oned_x,
-            oned_x,
-            criterion,
-            levels=[0.0],
-            colors="lightblue",
-            linewidths=2)
-criterion = mu - beta * np.sqrt(var)  
-criterion = criterion.reshape(len(oned_x), len(oned_x))
-plt.contour(oned_x,
-            oned_x,
-            criterion,
-            levels=[0.0],
-            colors="blue",
-            linewidths=2)
-plt.savefig(bols.logdir + f'/gp_final.png')
-plt.figure()
-x = bols.candidates[:, 0].flatten()
-y = bols.candidates[:, 1].flatten()
-length_of_candidates = len(x)
-original_cand_len = int(np.sqrt(len(x)))
-original_x = x.reshape((original_cand_len, original_cand_len))[0, :]
-original_y = y.reshape((original_cand_len, original_cand_len))[:, 0]
-z = bols.acq.reshape((original_cand_len, original_cand_len))
-plt.contourf(original_x, original_y, BOLevelSet.normalize(z))
-plt.colorbar()
-plt.savefig(bols.logdir + f'/mile_final.png')
+# Plot the initial GP overlaid with its 0-level set and the true BRT
+fig_name = bols.logdir + f'/gp_init.png'
+fig_name_colorbar = bols.logdir + f'/gp_init_colorbar.png'
+mile_name = bols.logdir + f'/mile_init.png'
+original_cand_len = plot_main_gp(bols, grid, candidates, oned_x, fig_name, fig_name_colorbar, mile_name)
 
-
-######### FIT THE ERROR GP #########
+########################### FIT THE ERROR GP ###########################
 mu, var = bols.m.predict(calibration_points, full_cov=False)
 criterion = mu - beta * np.sqrt(var) # Conservative bc more likely to say state is in BRT
 errors = np.abs(criterion - costs_at_calibration_points)
@@ -217,90 +247,22 @@ logdir = 'error_gp_model_dir'
 error_gp = BOLevelSet(f, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, conf_thres, length_scale, logdir)
 error_gp.initial_setup_given_data(calibration_points, errors)
 
+# Plot the initial error GP
+plot_error_gp(error_gp.logdir + f'/gp_None_colorbar.png')
+
+########################### RUN ACQUISITION FUNCTION ###########################
 shaped_candidates = candidates.copy()
 shaped_candidates = shaped_candidates.reshape((original_cand_len, original_cand_len, 2))
-
 bo_iters = NUM_BO_ITERS
 if bo_iters != 0:
     bols.optimize_loop_error_gp(error_gp, original_cand_len, candidates, shaped_candidates, 
                                 calibration_points, costs_at_calibration_points, beta, bo_iters)
 
-'''
-# Error GP
-error_mu, error_var = error_gp.m.predict(candidates, full_cov=False)
-# max_acq_idx = np.unravel_index(np.argmax(error_mu), candidates.shape)
-# x_next = candidates[max_acq_idx[0], :][np.newaxis, :]
-# print(x_next)
-sorted_indices = np.argsort(np.squeeze(error_mu))[::-1]
-acq_idx = np.unravel_index(sorted_indices[0], (original_cand_len, original_cand_len))
-x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
-print("ERROR GP", x_next, error_mu[sorted_indices[0]])
-acq_idx = np.unravel_index(sorted_indices[1], (original_cand_len, original_cand_len))
-x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
-print(x_next, error_mu[sorted_indices[1]])
-acq_idx = np.unravel_index(sorted_indices[2], (original_cand_len, original_cand_len))
-x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
-print(x_next, error_mu[sorted_indices[2]])
-acq_idx = np.unravel_index(sorted_indices[int(length_of_candidates/2)], (original_cand_len, original_cand_len))
-x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
-print(x_next, error_mu[sorted_indices[int(length_of_candidates/2)]])
+# Plot the final error GP
+plot_error_gp(error_gp.logdir + f'/gp_final_colorbar.png')
 
-# MILE
-# max_acq_idx = np.unravel_index(np.argmax(bols.acq, axis=None), candidates.shape)
-# x_next = candidates[max_acq_idx[0], :][np.newaxis, :]
-# print(x_next)
-sorted_indices = np.argsort(np.squeeze(bols.acq))[::-1]
-acq_idx = np.unravel_index(sorted_indices[0], (original_cand_len, original_cand_len))
-x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
-print("MILE", x_next, bols.acq[sorted_indices[0]])
-acq_idx = np.unravel_index(sorted_indices[1], (original_cand_len, original_cand_len))
-x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
-print(x_next, bols.acq[sorted_indices[1]])
-acq_idx = np.unravel_index(sorted_indices[2], (original_cand_len, original_cand_len))
-x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
-print(x_next, bols.acq[sorted_indices[2]])
-acq_idx = np.unravel_index(sorted_indices[int(length_of_candidates/2)], (original_cand_len, original_cand_len))
-x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
-print(x_next, bols.acq[sorted_indices[int(length_of_candidates/2)]])
-'''
-
-
-
-# Plot the GP overlaid with its 0-level set and the true BRT
-plt.figure()
-bols.m.plot()
-plt.contour(grid.coordinate_vectors[0],
-            grid.coordinate_vectors[1],
-            all_values[-1, :, :, THETA_INDEX].T,
-            levels=[0.0],
-            colors="black",
-            linewidths=3)
-mu, var = bols.m.predict(candidates, full_cov=False)
-criterion = mu + beta * np.sqrt(var)  
-criterion = criterion.reshape(len(oned_x), len(oned_x))
-plt.contour(oned_x,
-            oned_x,
-            criterion,
-            levels=[0.0],
-            colors="lightblue",
-            linewidths=2)
-criterion = mu - beta * np.sqrt(var)  
-criterion = criterion.reshape(len(oned_x), len(oned_x))
-plt.contour(oned_x,
-            oned_x,
-            criterion,
-            levels=[0.0],
-            colors="blue",
-            linewidths=2)
-plt.savefig(bols.logdir + f'/gp_final.png')
-plt.figure()
-x = bols.candidates[:, 0].flatten()
-y = bols.candidates[:, 1].flatten()
-length_of_candidates = len(x)
-original_cand_len = int(np.sqrt(len(x)))
-original_x = x.reshape((original_cand_len, original_cand_len))[0, :]
-original_y = y.reshape((original_cand_len, original_cand_len))[:, 0]
-z = bols.acq.reshape((original_cand_len, original_cand_len))
-plt.contourf(original_x, original_y, BOLevelSet.normalize(z))
-plt.colorbar()
-plt.savefig(bols.logdir + f'/mile_final.png')
+# Plot the final GP overlaid with its 0-level set and the true BRT
+fig_name = bols.logdir + f'/gp_final.png'
+fig_name_colorbar = bols.logdir + f'/gp_final_colorbar.png'
+mile_name = bols.logdir + f'/mile_final.png'
+_ = plot_main_gp(bols, grid, candidates, oned_x, fig_name, fig_name_colorbar, mile_name)

@@ -19,10 +19,15 @@ class BOLevelSet:
         self.logdir = logdir
         self.acq_cache = []
 
-    def initial_setup(self, warmstart_sample):
+    def initial_setup(self, warmstart_sample, rng_instance):
         X_init = []
         for i in range(self.input_dim):
-            X_i_init = np.random.uniform(
+            # X_i_init = np.random.uniform(
+            #     self.range_x[i][0],
+            #     self.range_x[i][1],
+            #     (warmstart_sample,)
+            # )
+            X_i_init = rng_instance.uniform(
                 self.range_x[i][0],
                 self.range_x[i][1],
                 (warmstart_sample,)
@@ -111,9 +116,9 @@ class BOLevelSet:
         self.Y = np.vstack((self.Y, y_next))
         self.m.set_XY(X=self.X, Y=self.Y)
         self.m.optimize(messages=True)
-        # self.acq = self.MILE(self.candidates, self.cost_thres, self.conf_thres)
+        self.acq = self.MILE(self.candidates, self.cost_thres, self.conf_thres)
         if plot:
-            self.plot(iter=iter, plot_acq=False)
+            self.plot(iter=iter)
         if save:
             self.save(self.logdir + f'/bols_{iter}')
     
@@ -152,20 +157,21 @@ class BOLevelSet:
 
     def optimize_loop_error_gp(self, error_gp, original_cand_len, candidates, shaped_candidates,
                                 calibration_points, costs_at_calibration_points, beta,
-                                iters, plot_every=10, save_every=10):
+                                iters, plot_every=1, save_every=10):
         # Schedule
         indices = []
         ctr1 = 0
         ctr2 = 0
         for i in range(iters):
-            if i < iters/3:
-                indices.append(-1 - ctr1)  # Best error
-                ctr1 += 1
-            elif i < iters/2:
-                indices.append(int(original_cand_len/2) - ctr2)  # Median error
-                ctr2 += 1
-            else:
-                indices.append(0) # Worst error
+            # if i < iters/3:
+            #     indices.append(-1 - ctr1)  # Best error
+            #     ctr1 += 1
+            # elif i < iters/2:
+            #     indices.append(int(original_cand_len/2) - ctr2)  # Median error
+            #     ctr2 += 1
+            # else:
+            #     indices.append(0) # Worst error
+            indices.append(0)
 
         for i in range(iters):
             print(f"optimizing step {i}")
@@ -177,7 +183,7 @@ class BOLevelSet:
             criterion = mu - beta * np.sqrt(var) # Conservative bc more likely to say state is in BRT
             errors = np.abs(criterion - costs_at_calibration_points)
             error_gp.initial_setup_given_data(calibration_points, errors, plot_iter=i)
-        print(np.array(self.acq_cache))
+        print("All points queried: ", np.array(self.acq_cache))
 
     def extract_levelset(self, x_test):
         beta = norm.ppf(self.conf_thres)
