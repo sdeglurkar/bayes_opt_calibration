@@ -55,7 +55,7 @@ class BOLevelSet:
         self.plot()
         self.save(self.logdir + f'/bols_init')
     
-    def initial_setup_given_data(self, X, Y, plot_iter=None):
+    def initial_setup_given_data(self, X, Y, to_plot=True, plot_iter=None):
         self.X = X
         self.Y = Y
         if self.init_fn is None:
@@ -75,7 +75,8 @@ class BOLevelSet:
                 )
         self.m.optimize(messages=True)
         # self.acq = self.MILE(self.candidates, self.cost_thres, self.conf_thres)
-        self.plot(iter=plot_iter, plot_acq=False)
+        if to_plot:
+            self.plot(iter=plot_iter, plot_acq=False)
         self.save(self.logdir + f'/error_gp_init')
 
     def optimize_given_one_more_point(self, x, y, plot=True, save=False, iter=0):
@@ -103,7 +104,8 @@ class BOLevelSet:
     def normalize(data, scale=1):
         return (data-np.min(data))/(np.max(data)-np.min(data)) * scale
 
-    def optimize_once(self, original_cand_len, shaped_candidates, index, plot=True, save=False, iter=0):
+    def optimize_once(self, original_cand_len, shaped_candidates, index, 
+                            to_plot=True, plot=True, save=False, iter=0):
         # max_acq_idx = np.unravel_index(np.argmax(self.acq, axis=None), self.acq.shape)
         # x_next = self.candidates[max_acq_idx[0], :][np.newaxis, :]
         sorted_indices = np.argsort(np.squeeze(self.acq))[::-1]
@@ -117,30 +119,30 @@ class BOLevelSet:
         self.m.set_XY(X=self.X, Y=self.Y)
         self.m.optimize(messages=True)
         self.acq = self.MILE(self.candidates, self.cost_thres, self.conf_thres)
-        if plot:
+        if to_plot and plot:
             self.plot(iter=iter)
         if save:
             self.save(self.logdir + f'/bols_{iter}')
     
     def optimize_once_error_gp(self, error_gp, original_cand_len, candidates, shaped_candidates,
-                                index, plot=True, save=False, iter=0):
+                                index, to_plot=True, plot=True, save=False, iter=0):
         error_mu, _ = error_gp.m.predict(candidates, full_cov=False)
         sorted_indices = np.argsort(np.squeeze(error_mu))[::-1]
         acq_idx = np.unravel_index(sorted_indices[index], (original_cand_len, original_cand_len))
         x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
-        print("ERROR GP", x_next, error_mu[sorted_indices[index]])
         self.acq_cache.append(x_next)
         y_next = self.f(x_next) 
         self.X = np.vstack((self.X, x_next))
         self.Y = np.vstack((self.Y, y_next))
         self.m.set_XY(X=self.X, Y=self.Y)
         self.m.optimize(messages=True)
-        if plot:
+        if to_plot and plot:
             self.plot(iter=iter, plot_acq=False)
         if save:
             self.save(self.logdir + f'/bols_{iter}')
         
-    def optimize_loop(self, original_cand_len, shaped_candidates, iters, plot_every=10, save_every=10):
+    def optimize_loop(self, original_cand_len, shaped_candidates, iters, to_plot=True, 
+                        plot_every=10, save_every=10):
         # Schedule
         indices = []
         for i in range(iters):
@@ -151,13 +153,13 @@ class BOLevelSet:
         for i in range(iters):
             print(f"optimizing step {i}")
             index = indices[i]
-            self.optimize_once(original_cand_len, shaped_candidates, index, 
+            self.optimize_once(original_cand_len, shaped_candidates, index, to_plot,
                             plot=((i+1) % plot_every == 0), save=((i+1) % save_every == 0), iter=i)
-        print(np.array(self.acq_cache))
+        print("All points queried: ", np.array(self.acq_cache))
 
     def optimize_loop_error_gp(self, error_gp, original_cand_len, candidates, shaped_candidates,
                                 calibration_points, costs_at_calibration_points, beta,
-                                iters, plot_every=1, save_every=10):
+                                iters, to_plot=True, plot_every=1, save_every=10):
         # Schedule
         indices = []
         ctr1 = 0
@@ -177,12 +179,13 @@ class BOLevelSet:
             print(f"optimizing step {i}")
             index = indices[i]
             self.optimize_once_error_gp(error_gp, original_cand_len, candidates, shaped_candidates, index,
-                                plot=((i+1) % plot_every == 0), save=((i+1) % save_every == 0), iter=i)
+                                to_plot, plot=((i+1) % plot_every == 0), save=((i+1) % save_every == 0), 
+                                iter=i)
             # Re-fit error GP
             mu, var = self.m.predict(calibration_points, full_cov=False)
             criterion = mu - beta * np.sqrt(var) # Conservative bc more likely to say state is in BRT
             errors = np.abs(criterion - costs_at_calibration_points)
-            error_gp.initial_setup_given_data(calibration_points, errors, plot_iter=i)
+            error_gp.initial_setup_given_data(calibration_points, errors, to_plot, plot_iter=i)
         print("All points queried: ", np.array(self.acq_cache))
 
     def extract_levelset(self, x_test):

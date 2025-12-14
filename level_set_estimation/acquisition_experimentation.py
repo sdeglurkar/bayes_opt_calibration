@@ -3,6 +3,8 @@ import hj_reachability as hj
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
+import os 
+import pickle
 from scipy.stats import norm
 
 from bolevelset import BOLevelSet
@@ -13,11 +15,25 @@ DT = 0.01
 FINAL_TIME = -1.0
 TRAJ_TIME_STEPS = int(np.abs(FINAL_TIME)/DT)
 goal_R = 5
+CONF_THRES = 0.9
+BETA = norm.ppf(CONF_THRES)
 NUM_BO_INIT_ITERS = 10 
 NUM_BO_ITERS = 30
 SIZE_CALIBRATION_SET = 100
 RANDOM_SEED = 17
 RNG = np.random.default_rng(RANDOM_SEED)
+MULTIPLE_SEEDS = False
+# MULTIPLE_SEED_LIST = [13, 14, 15, 16, 17, 18, 19, 20, 21]
+MULTIPLE_SEED_LIST = [17]
+MULTIPLE_RNG_LIST = [np.random.default_rng(seed) for seed in MULTIPLE_SEED_LIST]
+if MULTIPLE_SEEDS: assert len(MULTIPLE_SEED_LIST) > 0
+if os.path.isfile("calibration_data.pkl"):
+    with open("calibration_data.pkl", "rb") as f:
+        calibration_data = pickle.load(f)
+        [calibration_points, costs_at_calibration_points] = calibration_data
+        TO_PICKLE = False 
+else:
+    TO_PICKLE = True 
 
 class DubinsCar(hj.ControlAndDisturbanceAffineDynamics):
 
@@ -89,14 +105,16 @@ THETA_INDEX = index[2]
 
 ########################### GET OPTIMAL VALUE FUNCTION -- BRT ###########################
 values = jnp.linalg.norm(grid.states[..., :2], axis=-1) - goal_R
+print("Running HJR Solver")
 solver_settings = hj.SolverSettings.with_accuracy("very_high",
                                                   hamiltonian_postprocessor=hj.solver.backwards_reachable_tube)
 
 times = np.linspace(0, FINAL_TIME, 100) 
 initial_values = values
 all_values = hj.solve(solver_settings, dynamics, grid, times, initial_values)
+print("Done!")
 
-
+########################### HELPER FUNCTIONS ###########################
 def batched_rollouts_generator(value_fn, time_steps=TRAJ_TIME_STEPS, dt=DT):
     value_gradients = grid.grad_values(value_fn[-1, :, :, :])
     def rollout(state, plot_traj=False):
@@ -156,7 +174,7 @@ def plot_main_gp(bols, grid, candidates, oned_x, fig_name, fig_name_colorbar, mi
                 colors="black",
                 linewidths=3)
     mu, var = bols.m.predict(candidates, full_cov=False)
-    criterion = mu + beta * np.sqrt(var)  
+    criterion = mu + BETA * np.sqrt(var)  
     criterion = criterion.reshape(len(oned_x), len(oned_x))
     plt.contour(oned_x,
                 oned_x,
@@ -164,7 +182,7 @@ def plot_main_gp(bols, grid, candidates, oned_x, fig_name, fig_name_colorbar, mi
                 levels=[0.0],
                 colors="lightblue",
                 linewidths=2)
-    criterion = mu - beta * np.sqrt(var)  
+    criterion = mu - BETA * np.sqrt(var)  
     criterion = criterion.reshape(len(oned_x), len(oned_x))
     plt.contour(oned_x,
                 oned_x,
@@ -192,7 +210,7 @@ def plot_main_gp(bols, grid, candidates, oned_x, fig_name, fig_name_colorbar, mi
 
     return original_cand_len
 
-def plot_error_gp(fig_name):
+def plot_error_gp(error_gp, candidates, oned_x, fig_name):
     mu, var = error_gp.m.predict(candidates, full_cov=False)
     criterion = mu 
     criterion = criterion.reshape(len(oned_x), len(oned_x))
@@ -203,66 +221,195 @@ def plot_error_gp(fig_name):
     plt.colorbar()
     plt.savefig(fig_name)
 
+def validation_get_ground_truths(f, discretization=1.0):
+    print("Running validation: ground truth values")
+    oned_x = np.arange(-15, 15, discretization) # Should be a much finer grid
+    xv, yv = np.meshgrid(oned_x, oned_x)
+    candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1)))
+    true_costs = f(candidates)
+    print("Done!")
+    return true_costs, discretization
+
+def validate_final_level_set(bols, true_costs, discretization):
+    print("Running validation of final GP level set")
+    oned_x = np.arange(-15, 15, discretization) # Should be a much finer grid
+    xv, yv = np.meshgrid(oned_x, oned_x)
+    candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1)))
+
+    mu, var = bols.m.predict(candidates, full_cov=False)
+    criterion = mu - BETA * np.sqrt(var) # Conservative bc more likely to say state is in BRT
+    
+    assert len(criterion) == len(true_costs)
+
+    gp_below_zero = np.where(criterion <= 0)
+    gp_above_zero = np.where(criterion > 0)
+    true_below_zero = np.where(true_costs <= 0)
+    true_above_zero = np.where(true_costs > 0)
+
+    true_pos = np.intersect1d(gp_below_zero, true_below_zero)
+    false_pos = np.intersect1d(gp_below_zero, true_above_zero)
+    true_neg = np.intersect1d(gp_above_zero, true_above_zero)
+    false_neg = np.intersect1d(gp_above_zero, true_below_zero)
+
+    tpr = len(true_pos) / (len(true_pos) + len(false_neg))
+    fpr = len(false_pos) / (len(false_pos) + len(true_neg))
+    tnr = len(true_neg) / (len(true_neg) + len(false_pos))
+    fnr = len(false_neg) / (len(false_neg) + len(true_pos))
+
+    print("Done running validation!")
+
+    return tpr, fpr, tnr, fnr
+
 ########################### EVALUATE COSTS FOR CALIBRATION SET ###########################
 range_x = [[-15, 15], [-15, 15]]
-f = batched_rollouts_generator(all_values)
-calibration_points, costs_at_calibration_points = \
-    evaluate_costs_for_calibration_set(range_x, RNG, f, SIZE_CALIBRATION_SET)
+if TO_PICKLE:
+    f = batched_rollouts_generator(all_values)
+    calibration_points, costs_at_calibration_points = \
+        evaluate_costs_for_calibration_set(range_x, RNG, f, SIZE_CALIBRATION_SET)
+    calibration_data = [calibration_points, costs_at_calibration_points]
+    with open('calibration_data.pkl', 'wb') as f:
+        pickle.dump(calibration_data, f)
 
 ########################### FIT GAUSSIAN PROCESS ###########################
 mean_function = GPy.core.Mapping(2,1)
 mean_function.f = lambda x: np.expand_dims(x[:, 0]**2 + x[:, 1]**2 - goal_R, -1)
 mean_function.update_gradients = lambda a,b: 0
 mean_function.gradients_X = lambda a,b: 0
-
 input_dim = 2
 oned_x = np.arange(-15, 15, 1.0)
 xv, yv = np.meshgrid(oned_x, oned_x)
 candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1)))
 noise_var = 0.001 
 cost_thres = 0.0 
-conf_thres = 0.9
-beta = norm.ppf(conf_thres)
 length_scale = 0.25
 logdir = 'acq_exp_model_dir'
 bo_init_iters = NUM_BO_INIT_ITERS
-bols = BOLevelSet(f, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, 
-                    conf_thres, length_scale, logdir)
-bols.initial_setup(bo_init_iters, RNG)
-print("\nCompleted BOLevelSet initial setup")
+f = batched_rollouts_generator(all_values)
+if MULTIPLE_SEEDS:
+    bols_list = []
+    for rng in MULTIPLE_RNG_LIST:
+        bols = BOLevelSet(f, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, 
+                        CONF_THRES, length_scale, logdir)
+        bols_list.append(bols)
+        bols.initial_setup(bo_init_iters, rng)
+    print("\nCompleted BOLevelSet initial setup")
+else:
+    bols = BOLevelSet(f, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, 
+                        CONF_THRES, length_scale, logdir)
+    bols.initial_setup(bo_init_iters, RNG)
+    print("\nCompleted BOLevelSet initial setup")
 
-# Plot the initial GP overlaid with its 0-level set and the true BRT
-fig_name = bols.logdir + f'/gp_init.png'
-fig_name_colorbar = bols.logdir + f'/gp_init_colorbar.png'
-mile_name = bols.logdir + f'/mile_init.png'
-original_cand_len = plot_main_gp(bols, grid, candidates, oned_x, fig_name, fig_name_colorbar, mile_name)
+if MULTIPLE_SEEDS:
+    # Plot the initial GP overlaid with its 0-level set and the true BRT
+    for i in range(len(bols_list)):
+        bols = bols_list[i]
+        seed = MULTIPLE_SEED_LIST[i]
+        fig_name = logdir + f'/gp_init{seed}.png'
+        fig_name_colorbar = logdir + f'/gp_init_colorbar{seed}.png'
+        mile_name = logdir + f'/mile_init{seed}.png'
+        original_cand_len = plot_main_gp(bols, grid, candidates, oned_x, fig_name, 
+                                            fig_name_colorbar, mile_name)
+else:
+    # Plot the initial GP overlaid with its 0-level set and the true BRT
+    fig_name = bols.logdir + f'/gp_init.png'
+    fig_name_colorbar = bols.logdir + f'/gp_init_colorbar.png'
+    mile_name = bols.logdir + f'/mile_init.png'
+    original_cand_len = plot_main_gp(bols, grid, candidates, oned_x, fig_name, 
+                                        fig_name_colorbar, mile_name)
 
+exit()
 ########################### FIT THE ERROR GP ###########################
-mu, var = bols.m.predict(calibration_points, full_cov=False)
-criterion = mu - beta * np.sqrt(var) # Conservative bc more likely to say state is in BRT
-errors = np.abs(criterion - costs_at_calibration_points)
+if MULTIPLE_SEEDS:
+    mean_function = None 
+    logdir = 'error_gp_model_dir'
+    error_gps_list = []
+    for i in range(len(MULTIPLE_SEED_LIST)):
+        bols = bols_list[i]
+        seed = MULTIPLE_SEED_LIST[i]
+        mu, var = bols.m.predict(calibration_points, full_cov=False)
+        criterion = mu - BETA * np.sqrt(var) # Conservative bc more likely to say state is in BRT
+        errors = np.abs(criterion - costs_at_calibration_points)
+        error_gp = BOLevelSet(f, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, CONF_THRES, length_scale, logdir)
+        error_gp.initial_setup_given_data(calibration_points, errors, to_plot=False)
+        error_gps_list.append(error_gp)
+        # Plot the initial error GP
+        plot_error_gp(error_gp, candidates, oned_x, error_gp.logdir + f'/gp_None_colorbar{seed}.png')
+else:
+    mu, var = bols.m.predict(calibration_points, full_cov=False)
+    criterion = mu - BETA * np.sqrt(var) # Conservative bc more likely to say state is in BRT
+    errors = np.abs(criterion - costs_at_calibration_points)
 
-mean_function = None 
-logdir = 'error_gp_model_dir'
-error_gp = BOLevelSet(f, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, conf_thres, length_scale, logdir)
-error_gp.initial_setup_given_data(calibration_points, errors)
+    mean_function = None 
+    logdir = 'error_gp_model_dir'
+    error_gp = BOLevelSet(f, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, CONF_THRES, length_scale, logdir)
+    error_gp.initial_setup_given_data(calibration_points, errors)
 
-# Plot the initial error GP
-plot_error_gp(error_gp.logdir + f'/gp_None_colorbar.png')
+    # Plot the initial error GP
+    plot_error_gp(error_gp, candidates, oned_x, error_gp.logdir + f'/gp_None_colorbar.png')
 
 ########################### RUN ACQUISITION FUNCTION ###########################
 shaped_candidates = candidates.copy()
 shaped_candidates = shaped_candidates.reshape((original_cand_len, original_cand_len, 2))
 bo_iters = NUM_BO_ITERS
-if bo_iters != 0:
-    bols.optimize_loop_error_gp(error_gp, original_cand_len, candidates, shaped_candidates, 
-                                calibration_points, costs_at_calibration_points, beta, bo_iters)
+if MULTIPLE_SEEDS:
+    assert len(bols_list) == len(error_gps_list)
+    for i in range(len(bols_list)):
+        bols = bols_list[i]
+        error_gp = error_gps_list[i]
+        seed = MULTIPLE_SEED_LIST[i]
+        if bo_iters != 0:
+            bols.optimize_loop_error_gp(error_gp, original_cand_len, candidates, shaped_candidates, 
+                                        calibration_points, costs_at_calibration_points, BETA, bo_iters,
+                                        to_plot=False)
+        # Plot the final error GP
+        plot_error_gp(error_gp, candidates, oned_x, error_gp.logdir + f'/gp_final_colorbar{seed}.png')
 
-# Plot the final error GP
-plot_error_gp(error_gp.logdir + f'/gp_final_colorbar.png')
+        # Plot the final GP overlaid with its 0-level set and the true BRT
+        fig_name = bols.logdir + f'/gp_final{seed}.png'
+        fig_name_colorbar = bols.logdir + f'/gp_final_colorbar{seed}.png'
+        mile_name = bols.logdir + f'/mile_final{seed}.png'
+        _ = plot_main_gp(bols, grid, candidates, oned_x, fig_name, 
+                            fig_name_colorbar, mile_name)
+else:
+    if bo_iters != 0:
+        bols.optimize_loop_error_gp(error_gp, original_cand_len, candidates, shaped_candidates, 
+                                    calibration_points, costs_at_calibration_points, BETA, bo_iters,
+                                    to_plot=False)
 
-# Plot the final GP overlaid with its 0-level set and the true BRT
-fig_name = bols.logdir + f'/gp_final.png'
-fig_name_colorbar = bols.logdir + f'/gp_final_colorbar.png'
-mile_name = bols.logdir + f'/mile_final.png'
-_ = plot_main_gp(bols, grid, candidates, oned_x, fig_name, fig_name_colorbar, mile_name)
+    # Plot the final error GP
+    plot_error_gp(error_gp, candidates, oned_x, error_gp.logdir + f'/gp_final_colorbar.png')
+
+    # Plot the final GP overlaid with its 0-level set and the true BRT
+    fig_name = bols.logdir + f'/gp_final.png'
+    fig_name_colorbar = bols.logdir + f'/gp_final_colorbar.png'
+    mile_name = bols.logdir + f'/mile_final.png'
+    _ = plot_main_gp(bols, grid, candidates, oned_x, fig_name, 
+                        fig_name_colorbar, mile_name)
+
+########################### VALIDATION OF FINAL GP ###########################
+f = batched_rollouts_generator(all_values)
+true_costs, discretization = validation_get_ground_truths(f)
+if MULTIPLE_SEEDS:
+    results_dict = {}
+    for i in range(len(bols_list)):
+        bols = bols_list[i]
+        seed = MULTIPLE_SEED_LIST[i]
+        tpr, fpr, tnr, fnr = validate_final_level_set(bols, true_costs, discretization)
+        results_dict[seed] = [tpr, fpr, tnr, fnr]
+    keys = list(results_dict.keys())
+    for key in keys:
+        # TPR + FNR = 1
+        # FPR + TNR = 1
+        print("\nSeed: ", key)
+        print("True Positive Rate: ", results_dict[key][0])
+        print("False Negative Rate: ", results_dict[key][3])
+        print("False Positive Rate: ", results_dict[key][1])
+        print("True Negative Rate: ", results_dict[key][2])
+else:
+    tpr, fpr, tnr, fnr = validate_final_level_set(bols, true_costs, discretization)
+    # TPR + FNR = 1
+    # FPR + TNR = 1
+    print("True Positive Rate: ", tpr)
+    print("False Negative Rate: ", fnr)
+    print("False Positive Rate: ", fpr)
+    print("True Negative Rate: ", tnr)
