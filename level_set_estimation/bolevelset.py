@@ -111,7 +111,6 @@ class BOLevelSet:
         sorted_indices = np.argsort(np.squeeze(self.acq))[::-1]
         acq_idx = np.unravel_index(sorted_indices[index], (original_cand_len, original_cand_len))
         x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
-        print("MILE", x_next, self.acq[sorted_indices[index]])
         self.acq_cache.append(x_next)
         y_next = self.f(x_next) 
         self.X = np.vstack((self.X, x_next))
@@ -145,11 +144,19 @@ class BOLevelSet:
                         plot_every=10, save_every=10):
         # Schedule
         indices = []
+        ctr1 = 0
+        ctr2 = 0
         for i in range(iters):
-            if i < iters/2:
-                indices.append(int(original_cand_len/2))  # Median error
-            else:
-                indices.append(0) # Worst error
+            # if i < iters/3:
+            #     indices.append(-1 - ctr1)  # Best error
+            #     ctr1 += 1
+            # elif i < iters/2:
+            #     indices.append(int(original_cand_len/2) - ctr2)  # Median error
+            #     ctr2 += 1
+            # else:
+            #     indices.append(0) # Worst error
+            indices.append(0)
+
         for i in range(iters):
             print(f"optimizing step {i}")
             index = indices[i]
@@ -165,15 +172,15 @@ class BOLevelSet:
         ctr1 = 0
         ctr2 = 0
         for i in range(iters):
-            # if i < iters/3:
-            #     indices.append(-1 - ctr1)  # Best error
-            #     ctr1 += 1
-            # elif i < iters/2:
-            #     indices.append(int(original_cand_len/2) - ctr2)  # Median error
-            #     ctr2 += 1
-            # else:
-            #     indices.append(0) # Worst error
-            indices.append(0)
+            if i < iters/3:
+                indices.append(-1 - ctr1)  # Best error
+                ctr1 += 1
+            elif i < iters/2:
+                indices.append(int(original_cand_len/2) - ctr2)  # Median error
+                ctr2 += 1
+            else:
+                indices.append(0) # Worst error
+            # indices.append(0)
 
         for i in range(iters):
             print(f"optimizing step {i}")

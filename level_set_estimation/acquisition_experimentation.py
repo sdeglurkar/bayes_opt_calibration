@@ -19,21 +19,27 @@ CONF_THRES = 0.9
 BETA = norm.ppf(CONF_THRES)
 NUM_BO_INIT_ITERS = 10 
 NUM_BO_ITERS = 30
+USE_MILE = False
 SIZE_CALIBRATION_SET = 100
-RANDOM_SEED = 17
+RANDOM_SEED = 100 
 RNG = np.random.default_rng(RANDOM_SEED)
-MULTIPLE_SEEDS = False
-# MULTIPLE_SEED_LIST = [13, 14, 15, 16, 17, 18, 19, 20, 21]
-MULTIPLE_SEED_LIST = [17]
+MULTIPLE_SEEDS = True
+MULTIPLE_SEED_LIST = [0, 1, 2, 3, 17, 22, 100]
 MULTIPLE_RNG_LIST = [np.random.default_rng(seed) for seed in MULTIPLE_SEED_LIST]
 if MULTIPLE_SEEDS: assert len(MULTIPLE_SEED_LIST) > 0
 if os.path.isfile("calibration_data.pkl"):
     with open("calibration_data.pkl", "rb") as f:
         calibration_data = pickle.load(f)
         [calibration_points, costs_at_calibration_points] = calibration_data
-        TO_PICKLE = False 
+        TO_PICKLE_CALIBRATION = False 
 else:
-    TO_PICKLE = True 
+    TO_PICKLE_CALIBRATION = True 
+if os.path.isfile("validation_data.pkl"):
+    with open("validation_data.pkl", "rb") as f:
+        validation_data = pickle.load(f)
+        TO_PICKLE_VALIDATION = False 
+else:
+    TO_PICKLE_VALIDATION = True 
 
 class DubinsCar(hj.ControlAndDisturbanceAffineDynamics):
 
@@ -262,7 +268,7 @@ def validate_final_level_set(bols, true_costs, discretization):
 
 ########################### EVALUATE COSTS FOR CALIBRATION SET ###########################
 range_x = [[-15, 15], [-15, 15]]
-if TO_PICKLE:
+if TO_PICKLE_CALIBRATION:
     f = batched_rollouts_generator(all_values)
     calibration_points, costs_at_calibration_points = \
         evaluate_costs_for_calibration_set(range_x, RNG, f, SIZE_CALIBRATION_SET)
@@ -317,35 +323,35 @@ else:
     original_cand_len = plot_main_gp(bols, grid, candidates, oned_x, fig_name, 
                                         fig_name_colorbar, mile_name)
 
-exit()
 ########################### FIT THE ERROR GP ###########################
-if MULTIPLE_SEEDS:
-    mean_function = None 
-    logdir = 'error_gp_model_dir'
-    error_gps_list = []
-    for i in range(len(MULTIPLE_SEED_LIST)):
-        bols = bols_list[i]
-        seed = MULTIPLE_SEED_LIST[i]
+if not USE_MILE:
+    if MULTIPLE_SEEDS:
+        mean_function = None 
+        logdir = 'error_gp_model_dir'
+        error_gps_list = []
+        for i in range(len(MULTIPLE_SEED_LIST)):
+            bols = bols_list[i]
+            seed = MULTIPLE_SEED_LIST[i]
+            mu, var = bols.m.predict(calibration_points, full_cov=False)
+            criterion = mu - BETA * np.sqrt(var) # Conservative bc more likely to say state is in BRT
+            errors = np.abs(criterion - costs_at_calibration_points)
+            error_gp = BOLevelSet(f, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, CONF_THRES, length_scale, logdir)
+            error_gp.initial_setup_given_data(calibration_points, errors, to_plot=False)
+            error_gps_list.append(error_gp)
+            # Plot the initial error GP
+            plot_error_gp(error_gp, candidates, oned_x, error_gp.logdir + f'/gp_init_colorbar{seed}.png')
+    else:
         mu, var = bols.m.predict(calibration_points, full_cov=False)
         criterion = mu - BETA * np.sqrt(var) # Conservative bc more likely to say state is in BRT
         errors = np.abs(criterion - costs_at_calibration_points)
+
+        mean_function = None 
+        logdir = 'error_gp_model_dir'
         error_gp = BOLevelSet(f, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, CONF_THRES, length_scale, logdir)
-        error_gp.initial_setup_given_data(calibration_points, errors, to_plot=False)
-        error_gps_list.append(error_gp)
+        error_gp.initial_setup_given_data(calibration_points, errors)
+
         # Plot the initial error GP
-        plot_error_gp(error_gp, candidates, oned_x, error_gp.logdir + f'/gp_None_colorbar{seed}.png')
-else:
-    mu, var = bols.m.predict(calibration_points, full_cov=False)
-    criterion = mu - BETA * np.sqrt(var) # Conservative bc more likely to say state is in BRT
-    errors = np.abs(criterion - costs_at_calibration_points)
-
-    mean_function = None 
-    logdir = 'error_gp_model_dir'
-    error_gp = BOLevelSet(f, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, CONF_THRES, length_scale, logdir)
-    error_gp.initial_setup_given_data(calibration_points, errors)
-
-    # Plot the initial error GP
-    plot_error_gp(error_gp, candidates, oned_x, error_gp.logdir + f'/gp_None_colorbar.png')
+        plot_error_gp(error_gp, candidates, oned_x, error_gp.logdir + f'/gp_init_colorbar.png')
 
 ########################### RUN ACQUISITION FUNCTION ###########################
 shaped_candidates = candidates.copy()
@@ -358,11 +364,14 @@ if MULTIPLE_SEEDS:
         error_gp = error_gps_list[i]
         seed = MULTIPLE_SEED_LIST[i]
         if bo_iters != 0:
-            bols.optimize_loop_error_gp(error_gp, original_cand_len, candidates, shaped_candidates, 
-                                        calibration_points, costs_at_calibration_points, BETA, bo_iters,
-                                        to_plot=False)
-        # Plot the final error GP
-        plot_error_gp(error_gp, candidates, oned_x, error_gp.logdir + f'/gp_final_colorbar{seed}.png')
+            if USE_MILE:
+                bols.optimize_loop(original_cand_len, shaped_candidates, bo_iters, to_plot=False)
+            else:
+                bols.optimize_loop_error_gp(error_gp, original_cand_len, candidates, shaped_candidates, 
+                                            calibration_points, costs_at_calibration_points, BETA, bo_iters,
+                                            to_plot=False)
+                # Plot the final error GP
+                plot_error_gp(error_gp, candidates, oned_x, error_gp.logdir + f'/gp_final_colorbar{seed}.png')
 
         # Plot the final GP overlaid with its 0-level set and the true BRT
         fig_name = bols.logdir + f'/gp_final{seed}.png'
@@ -372,12 +381,14 @@ if MULTIPLE_SEEDS:
                             fig_name_colorbar, mile_name)
 else:
     if bo_iters != 0:
-        bols.optimize_loop_error_gp(error_gp, original_cand_len, candidates, shaped_candidates, 
-                                    calibration_points, costs_at_calibration_points, BETA, bo_iters,
-                                    to_plot=False)
-
-    # Plot the final error GP
-    plot_error_gp(error_gp, candidates, oned_x, error_gp.logdir + f'/gp_final_colorbar.png')
+        if USE_MILE:
+            bols.optimize_loop(original_cand_len, shaped_candidates, bo_iters, to_plot=False)
+        else:
+            bols.optimize_loop_error_gp(error_gp, original_cand_len, candidates, shaped_candidates, 
+                                        calibration_points, costs_at_calibration_points, BETA, bo_iters,
+                                        to_plot=False)
+            # Plot the final error GP
+            plot_error_gp(error_gp, candidates, oned_x, error_gp.logdir + f'/gp_final_colorbar.png')
 
     # Plot the final GP overlaid with its 0-level set and the true BRT
     fig_name = bols.logdir + f'/gp_final.png'
@@ -388,7 +399,13 @@ else:
 
 ########################### VALIDATION OF FINAL GP ###########################
 f = batched_rollouts_generator(all_values)
-true_costs, discretization = validation_get_ground_truths(f)
+if TO_PICKLE_VALIDATION:
+    true_costs, discretization = validation_get_ground_truths(f)
+    with open('validation_data.pkl', 'wb') as f:
+        pickle.dump([true_costs, discretization], f)
+else:
+    true_costs, discretization = validation_data
+
 if MULTIPLE_SEEDS:
     results_dict = {}
     for i in range(len(bols_list)):
@@ -397,6 +414,10 @@ if MULTIPLE_SEEDS:
         tpr, fpr, tnr, fnr = validate_final_level_set(bols, true_costs, discretization)
         results_dict[seed] = [tpr, fpr, tnr, fnr]
     keys = list(results_dict.keys())
+    all_tprs = [results_dict[key][0] for key in keys]
+    all_fnrs = [results_dict[key][3] for key in keys]
+    all_fprs = [results_dict[key][1] for key in keys]
+    all_tnrs = [results_dict[key][2] for key in keys]
     for key in keys:
         # TPR + FNR = 1
         # FPR + TNR = 1
@@ -405,6 +426,11 @@ if MULTIPLE_SEEDS:
         print("False Negative Rate: ", results_dict[key][3])
         print("False Positive Rate: ", results_dict[key][1])
         print("True Negative Rate: ", results_dict[key][2])
+    
+    print("\nAverage TPR Over All Seeds: ", np.mean(all_tprs))
+    print("Average FNR Over All Seeds: ", np.mean(all_fnrs))
+    print("Average FPR Over All Seeds: ", np.mean(all_fprs))
+    print("Average TNR Over All Seeds: ", np.mean(all_tnrs))
 else:
     tpr, fpr, tnr, fnr = validate_final_level_set(bols, true_costs, discretization)
     # TPR + FNR = 1
