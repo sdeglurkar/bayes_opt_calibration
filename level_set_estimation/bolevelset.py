@@ -18,6 +18,7 @@ class BOLevelSet:
         self.conf_thres = conf_thres
         self.logdir = logdir
         self.acq_cache = []
+        self.num_counterexamples_list = []
 
     def initial_setup(self, warmstart_sample, rng_instance):
         X_init = []
@@ -139,6 +140,22 @@ class BOLevelSet:
             self.plot(iter=iter, plot_acq=False)
         if save:
             self.save(self.logdir + f'/bols_{iter}')
+    
+    def optimize_once_counterexamples(self, counterexamples, rng_instance, 
+                                        to_plot=True, plot=True, save=False, iter=0):
+        random_counterexample_ind = rng_instance.integers(0, len(counterexamples)) 
+        random_counterexample = counterexamples[random_counterexample_ind]
+        x_next = [random_counterexample]
+        self.acq_cache.append(x_next)
+        y_next = self.f(x_next)
+        self.X = np.vstack((self.X, x_next))
+        self.Y = np.vstack((self.Y, y_next))
+        self.m.set_XY(X=self.X, Y=self.Y)
+        self.m.optimize(messages=True)
+        if to_plot and plot:
+            self.plot(iter=iter, plot_acq=False)
+        if save:
+            self.save(self.logdir + f'/bols_{iter}')
         
     def optimize_loop(self, original_cand_len, shaped_candidates, iters, to_plot=True, 
                         plot_every=10, save_every=10):
@@ -155,7 +172,7 @@ class BOLevelSet:
             #     ctr2 += 1
             # else:
             #     indices.append(0) # Worst error
-            indices.append(0)
+            indices.append(0) # Worst error
 
         for i in range(iters):
             print(f"optimizing step {i}")
@@ -180,7 +197,7 @@ class BOLevelSet:
                 ctr2 += 1
             else:
                 indices.append(0) # Worst error
-            # indices.append(0)
+            # indices.append(0) # Worst error
 
         for i in range(iters):
             print(f"optimizing step {i}")
@@ -194,6 +211,40 @@ class BOLevelSet:
             errors = np.abs(criterion - costs_at_calibration_points)
             error_gp.initial_setup_given_data(calibration_points, errors, to_plot, plot_iter=i)
         print("All points queried: ", np.array(self.acq_cache))
+
+    def optimize_loop_counterexamples(self, search_candidates, true_costs, beta, 
+                                        rng_instance, iters, 
+                                        to_plot=True, plot_every=1, save_every=10):
+        for i in range(iters):
+            print(f"optimizing step {i}")
+            mu, var = self.m.predict(search_candidates, full_cov=False)
+            criterion = mu - beta * np.sqrt(var) # Conservative bc more likely to say state is in BRT
+        
+            assert len(criterion) == len(true_costs)
+            gp_below_zero = np.where(criterion <= 0)
+            gp_above_zero = np.where(criterion > 0)
+            true_below_zero = np.where(true_costs <= 0)
+            true_above_zero = np.where(true_costs > 0) 
+
+            true_pos = np.intersect1d(gp_below_zero, true_below_zero)
+            false_pos = np.intersect1d(gp_below_zero, true_above_zero)
+            true_neg = np.intersect1d(gp_above_zero, true_above_zero)
+            false_neg = np.intersect1d(gp_above_zero, true_below_zero)
+
+            counterexample_inds = np.union1d(false_pos, false_neg)
+            counterexamples = search_candidates[counterexample_inds]
+
+            self.num_counterexamples_list.append(len(counterexamples))
+
+            if len(counterexamples) == 0:
+                print("\nNO COUNTEREXAMPLES")
+            else:
+                self.optimize_once_counterexamples(counterexamples, rng_instance, 
+                                    to_plot, plot=((i+1) % plot_every == 0), save=((i+1) % save_every == 0), 
+                                    iter=i)
+            
+        print("All points queried: ", np.array(self.acq_cache))
+        print("Counterexamples over time: ", self.num_counterexamples_list)
 
     def extract_levelset(self, x_test):
         beta = norm.ppf(self.conf_thres)

@@ -34,6 +34,13 @@ if os.path.isfile("calibration_data.pkl"):
         TO_PICKLE_CALIBRATION = False 
 else:
     TO_PICKLE_CALIBRATION = True 
+if os.path.isfile("counterexample_search_data.pkl"):
+    with open("counterexample_search_data.pkl", "rb") as f:
+        counterexample_search_data = pickle.load(f)
+        [true_costs, search_candidates] = counterexample_search_data
+        TO_PICKLE_COUNTEREXAMPLE = False 
+else:
+    TO_PICKLE_COUNTEREXAMPLE = True 
 if os.path.isfile("validation_data.pkl"):
     with open("validation_data.pkl", "rb") as f:
         validation_data = pickle.load(f)
@@ -227,7 +234,16 @@ def plot_error_gp(error_gp, candidates, oned_x, fig_name):
     plt.colorbar()
     plt.savefig(fig_name)
 
-def validation_get_ground_truths(f, discretization=1.0):
+def get_ground_truths_for_a_grid(f, discretization):
+    print("Adversary searching for failures")
+    oned_x = np.arange(-15, 15, discretization) 
+    xv, yv = np.meshgrid(oned_x, oned_x)
+    search_candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1)))
+    true_costs = f(search_candidates)
+    print("Done!")
+    return search_candidates, true_costs
+
+def validation_get_ground_truths(f, discretization=0.5):
     print("Running validation: ground truth values")
     oned_x = np.arange(-15, 15, discretization) # Should be a much finer grid
     xv, yv = np.meshgrid(oned_x, oned_x)
@@ -356,6 +372,11 @@ if not USE_MILE:
 ########################### RUN ACQUISITION FUNCTION ###########################
 shaped_candidates = candidates.copy()
 shaped_candidates = shaped_candidates.reshape((original_cand_len, original_cand_len, 2))
+f = batched_rollouts_generator(all_values)
+if TO_PICKLE_COUNTEREXAMPLE:
+    search_candidates, true_costs = get_ground_truths_for_a_grid(f, discretization=1.0)
+    with open('counterexample_search_data.pkl', 'wb') as f:
+        pickle.dump([true_costs, search_candidates], f)
 bo_iters = NUM_BO_ITERS
 if MULTIPLE_SEEDS:
     assert len(bols_list) == len(error_gps_list)
@@ -363,13 +384,16 @@ if MULTIPLE_SEEDS:
         bols = bols_list[i]
         error_gp = error_gps_list[i]
         seed = MULTIPLE_SEED_LIST[i]
+        rng = MULTIPLE_RNG_LIST[i]
         if bo_iters != 0:
             if USE_MILE:
                 bols.optimize_loop(original_cand_len, shaped_candidates, bo_iters, to_plot=False)
             else:
-                bols.optimize_loop_error_gp(error_gp, original_cand_len, candidates, shaped_candidates, 
-                                            calibration_points, costs_at_calibration_points, BETA, bo_iters,
-                                            to_plot=False)
+                bols.optimize_loop_counterexamples(search_candidates, true_costs, BETA, 
+                                        rng, bo_iters, to_plot=False)
+                # bols.optimize_loop_error_gp(error_gp, original_cand_len, candidates, shaped_candidates, 
+                #                             calibration_points, costs_at_calibration_points, BETA, bo_iters,
+                #                             to_plot=False)
                 # Plot the final error GP
                 plot_error_gp(error_gp, candidates, oned_x, error_gp.logdir + f'/gp_final_colorbar{seed}.png')
 
@@ -384,9 +408,11 @@ else:
         if USE_MILE:
             bols.optimize_loop(original_cand_len, shaped_candidates, bo_iters, to_plot=False)
         else:
-            bols.optimize_loop_error_gp(error_gp, original_cand_len, candidates, shaped_candidates, 
-                                        calibration_points, costs_at_calibration_points, BETA, bo_iters,
-                                        to_plot=False)
+            bols.optimize_loop_counterexamples(search_candidates, true_costs, BETA, 
+                                        RNG, bo_iters, to_plot=False)
+            # bols.optimize_loop_error_gp(error_gp, original_cand_len, candidates, shaped_candidates, 
+            #                             calibration_points, costs_at_calibration_points, BETA, bo_iters,
+            #                             to_plot=False)
             # Plot the final error GP
             plot_error_gp(error_gp, candidates, oned_x, error_gp.logdir + f'/gp_final_colorbar.png')
 
