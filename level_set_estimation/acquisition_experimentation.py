@@ -350,7 +350,16 @@ if not USE_MILE:
             seed = MULTIPLE_SEED_LIST[i]
             mu, var = bols.m.predict(calibration_points, full_cov=False)
             criterion = mu - BETA * np.sqrt(var) # Conservative bc more likely to say state is in BRT
-            errors = np.abs(criterion - costs_at_calibration_points)
+            # errors = np.abs(criterion - costs_at_calibration_points)
+            errors = []
+            for i in range(len(criterion)):
+                if (costs_at_calibration_points[i] == 0 and criterion[i] <= 0): # Product is 0
+                    errors.append(0)
+                elif criterion[i] * costs_at_calibration_points[i] > 0:  # They have the same sign
+                    errors.append(0)
+                else: # Even if costs_at_calibration_points[i] < 0 and criterion[i] == 0, say it's wrong
+                    errors.append(1) 
+            errors = np.expand_dims(np.array(errors), -1)
             error_gp = BOLevelSet(f, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, CONF_THRES, length_scale, logdir)
             error_gp.initial_setup_given_data(calibration_points, errors, to_plot=False)
             error_gps_list.append(error_gp)
@@ -359,7 +368,16 @@ if not USE_MILE:
     else:
         mu, var = bols.m.predict(calibration_points, full_cov=False)
         criterion = mu - BETA * np.sqrt(var) # Conservative bc more likely to say state is in BRT
-        errors = np.abs(criterion - costs_at_calibration_points)
+        # errors = np.abs(criterion - costs_at_calibration_points)
+        errors = []
+        for i in range(len(criterion)):
+            if (costs_at_calibration_points[i] == 0 and criterion[i] <= 0): # Product is 0
+                errors.append(0)
+            elif criterion[i] * costs_at_calibration_points[i] > 0:  # They have the same sign
+                errors.append(0)
+            else: # Even if costs_at_calibration_points[i] < 0 and criterion[i] == 0, say it's wrong
+                errors.append(1) 
+        errors = np.expand_dims(np.array(errors), -1)
 
         mean_function = None 
         logdir = 'error_gp_model_dir'
@@ -389,11 +407,14 @@ if MULTIPLE_SEEDS:
             if USE_MILE:
                 bols.optimize_loop(original_cand_len, shaped_candidates, bo_iters, to_plot=False)
             else:
-                bols.optimize_loop_counterexamples(search_candidates, true_costs, BETA, 
-                                        rng, bo_iters, to_plot=False)
-                # bols.optimize_loop_error_gp(error_gp, original_cand_len, candidates, shaped_candidates, 
-                #                             calibration_points, costs_at_calibration_points, BETA, bo_iters,
-                #                             to_plot=False)
+                # bols.optimize_loop_counterexamples(search_candidates, true_costs, BETA, 
+                #                         rng, bo_iters, to_plot=False)
+                # plt.figure()
+                # plt.plot(range(bo_iters), bols.num_counterexamples_list)
+                # plt.savefig(bols.logdir + f'/counterexs{seed}.png')
+                bols.optimize_loop_error_gp(error_gp, original_cand_len, candidates, shaped_candidates, 
+                                            calibration_points, costs_at_calibration_points,  
+                                            BETA, rng, bo_iters, to_plot=False)
                 # Plot the final error GP
                 plot_error_gp(error_gp, candidates, oned_x, error_gp.logdir + f'/gp_final_colorbar{seed}.png')
 
@@ -408,11 +429,14 @@ else:
         if USE_MILE:
             bols.optimize_loop(original_cand_len, shaped_candidates, bo_iters, to_plot=False)
         else:
-            bols.optimize_loop_counterexamples(search_candidates, true_costs, BETA, 
-                                        RNG, bo_iters, to_plot=False)
-            # bols.optimize_loop_error_gp(error_gp, original_cand_len, candidates, shaped_candidates, 
-            #                             calibration_points, costs_at_calibration_points, BETA, bo_iters,
-            #                             to_plot=False)
+            # bols.optimize_loop_counterexamples(search_candidates, true_costs, BETA, 
+            #                             RNG, bo_iters, to_plot=False)
+            # plt.figure()
+            # plt.plot(range(bo_iters), bols.num_counterexamples_list)
+            # plt.savefig(bols.logdir + f'/counterexs.png')
+            bols.optimize_loop_error_gp(error_gp, original_cand_len, candidates, shaped_candidates, 
+                                        calibration_points, costs_at_calibration_points, 
+                                        BETA, RNG, bo_iters, to_plot=False)
             # Plot the final error GP
             plot_error_gp(error_gp, candidates, oned_x, error_gp.logdir + f'/gp_final_colorbar.png')
 
