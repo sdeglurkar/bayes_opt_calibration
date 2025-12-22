@@ -81,16 +81,6 @@ class BOLevelSet:
             self.plot(iter=plot_iter, plot_acq=False)
         self.save(self.logdir + f'/error_gp_init')
 
-    def optimize_given_one_more_point(self, x, y, plot=True, save=False, iter=0):
-        self.X = np.vstack((self.X, x))
-        self.Y = np.vstack((self.Y, y))
-        self.m.set_XY(X=self.X, Y=self.Y)
-        self.m.optimize(messages=True)
-        if plot:
-            self.plot(iter=iter, plot_acq=False)
-        if save:
-            self.save(self.logdir + f'/bols_{iter}')
-
     def MILE(self, x, cost_thres, conf_thres):
         beta = norm.ppf(conf_thres)
         objecs = np.zeros((len(x), 1))
@@ -127,21 +117,26 @@ class BOLevelSet:
     
     def optimize_once_error_gp(self, error_gp, original_cand_len, candidates, shaped_candidates,
                                 rng_instance,
-                                index, beta, to_plot=True, plot=True, save=False, iter=0):
+                                index, beta, error_binary,
+                                to_plot=True, plot=True, save=False, iter=0):
         error_mu, error_var = error_gp.m.predict(candidates, full_cov=False)
-        prob_error_greater_than = []
-        for i in range(len(error_mu)):
-            prob_error_greater_than.append(1 - \
-                scipy.stats.norm.cdf(0.25, loc=error_mu[i], scale=np.sqrt(error_var[i])))
-        prob_error_greater_than = np.array(prob_error_greater_than)/np.sum(prob_error_greater_than) # Normalize
-        cumulative_sum = np.cumsum(prob_error_greater_than)
-        assert (np.abs(cumulative_sum[-1] - 1.0)) < 1e-6
-        rand_num = rng_instance.uniform(0, 1.0)
-        sampled_index = np.where(cumulative_sum < rand_num)[0][-1]
-        # sorted_indices = np.argsort(np.squeeze(error_mu))[::-1]
-        # acq_idx = np.unravel_index(sorted_indices[index], (original_cand_len, original_cand_len))
-        # x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
-        x_next = candidates[sampled_index][np.newaxis, :]
+        if error_binary:  # Does not follow schedule
+            # Sample point by the probability that the error is > 0
+            prob_error_greater_than = []
+            for i in range(len(error_mu)):
+                prob_error_greater_than.append(1 - \
+                    scipy.stats.norm.cdf(0.0, loc=error_mu[i], scale=np.sqrt(error_var[i])))
+            prob_error_greater_than = np.array(prob_error_greater_than)/np.sum(prob_error_greater_than) # Normalize
+            cumulative_sum = np.cumsum(prob_error_greater_than)
+            assert np.abs(cumulative_sum[-1] - 1.0) < 1e-5
+            rand_num = rng_instance.uniform(0, 1.0)
+            sampled_index = np.where(cumulative_sum < rand_num)[0][-1]
+            x_next = candidates[sampled_index][np.newaxis, :]
+        else: # Follow schedule
+            sorted_indices = np.argsort(np.squeeze(error_mu))[::-1]
+            acq_idx = np.unravel_index(sorted_indices[index], (original_cand_len, original_cand_len))
+            x_next = shaped_candidates[acq_idx[0], acq_idx[1], :][np.newaxis, :]
+
         self.acq_cache.append(x_next)
         y_next = self.f(x_next) 
         self.X = np.vstack((self.X, x_next))
@@ -155,7 +150,7 @@ class BOLevelSet:
     
     def optimize_once_counterexamples(self, counterexamples, rng_instance, 
                                         to_plot=True, plot=True, save=False, iter=0):
-        if len(counterexamples) > 500:
+        if len(counterexamples) > 1e7: #500:
             x_next = []
             for _ in range(3):
                 x_1 = rng_instance.uniform(
@@ -177,19 +172,19 @@ class BOLevelSet:
             y_next = self.f(x_next)
             self.X = np.vstack((self.X, x_next))
             self.Y = np.vstack((self.Y, y_next))
-            if len(counterexamples) > 3:
-                random_inds = [random_counterexample_ind]
-                for _ in range(2):
-                    random_ind = rng_instance.integers(0, len(counterexamples)) 
-                    while random_ind in random_inds:
-                        random_ind = rng_instance.integers(0, len(counterexamples)) 
-                    random_inds.append(random_ind)
-                    random_counterexample = counterexamples[random_ind]
-                    x_next = [random_counterexample]
-                    self.acq_cache.append(x_next)
-                    y_next = self.f(x_next)
-                    self.X = np.vstack((self.X, x_next))
-                    self.Y = np.vstack((self.Y, y_next))
+            # if len(counterexamples) > 3:
+            #     random_inds = [random_counterexample_ind]
+            #     for _ in range(2):
+            #         random_ind = rng_instance.integers(0, len(counterexamples)) 
+            #         while random_ind in random_inds:
+            #             random_ind = rng_instance.integers(0, len(counterexamples)) 
+            #         random_inds.append(random_ind)
+            #         random_counterexample = counterexamples[random_ind]
+            #         x_next = [random_counterexample]
+            #         self.acq_cache.append(x_next)
+            #         y_next = self.f(x_next)
+            #         self.X = np.vstack((self.X, x_next))
+            #         self.Y = np.vstack((self.Y, y_next))
 
         self.m.set_XY(X=self.X, Y=self.Y)
         self.m.optimize(messages=True)
@@ -224,42 +219,47 @@ class BOLevelSet:
 
     def optimize_loop_error_gp(self, error_gp, original_cand_len, candidates, shaped_candidates,
                                 calibration_points, costs_at_calibration_points, beta, rng_instance,
-                                iters, to_plot=True, plot_every=1, save_every=10):
+                                iters, schedule, error_binary, to_plot=True, 
+                                plot_every=1, save_every=10):
         # Schedule
         indices = []
         ctr1 = 0
         ctr2 = 0
         for i in range(iters):
-            # if i < iters/3:
-            #     indices.append(-1 - ctr1)  # Best error
-            #     ctr1 += 1
-            # elif i < iters/2:
-            #     indices.append(int(original_cand_len/2) - ctr2)  # Median error
-            #     ctr2 += 1
-            # else:
-            #     indices.append(0) # Worst error
-            indices.append(0) # Worst error
+            if schedule:
+                if i < iters/3:
+                    indices.append(-1 - ctr1)  # Best error
+                    ctr1 += 1
+                elif i < iters/2:
+                    indices.append(int(original_cand_len/2) - ctr2)  # Median error
+                    ctr2 += 1
+                else:
+                    indices.append(0) # Worst error
+            else:
+                indices.append(0) # Worst error
 
         for i in range(iters):
             print(f"optimizing step {i}")
             index = indices[i]
             self.optimize_once_error_gp(error_gp, original_cand_len, candidates, shaped_candidates, rng_instance, 
-                                index, beta, to_plot, 
+                                index, beta, error_binary, to_plot, 
                                 plot=((i+1) % plot_every == 0), save=((i+1) % save_every == 0), 
                                 iter=i)
             # Re-fit error GP
             mu, var = self.m.predict(calibration_points, full_cov=False)
             criterion = mu - beta * np.sqrt(var) # Conservative bc more likely to say state is in BRT
-            # errors = np.abs(criterion - costs_at_calibration_points)
-            errors = []
-            for i in range(len(criterion)):
-                if (costs_at_calibration_points[i] == 0 and criterion[i] <= 0): # Product is 0
-                    errors.append(0)
-                elif criterion[i] * costs_at_calibration_points[i] > 0:  # They have the same sign
-                    errors.append(0)
-                else: # Even if costs_at_calibration_points[i] < 0 and criterion[i] == 0, say it's wrong
-                    errors.append(1) 
-            errors = np.expand_dims(np.array(errors), -1)
+            if error_binary:
+                errors = []
+                for i in range(len(criterion)):
+                    if (costs_at_calibration_points[i] == 0 and criterion[i] <= 0): # Product is 0
+                        errors.append(0)
+                    elif criterion[i] * costs_at_calibration_points[i] > 0:  # They have the same sign
+                        errors.append(0)
+                    else: # Even if costs_at_calibration_points[i] < 0 and criterion[i] == 0, say it's wrong
+                        errors.append(1) 
+                errors = np.expand_dims(np.array(errors), -1)
+            else:
+                errors = np.abs(criterion - costs_at_calibration_points)
             error_gp.initial_setup_given_data(calibration_points, errors, to_plot, plot_iter=i)
         print("All points queried: ", np.array(self.acq_cache))
 
