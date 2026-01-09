@@ -117,7 +117,7 @@ class BOLevelSet:
                 noise_var = self.noise_var,
                 mean_function=self.init_fn
                 )
-        self.m.optimize(messages=True)
+        self.m.optimize_restarts(messages=True)
         self.acq = self.MILE(self.candidates, self.cost_thres, self.conf_thres)
         self.plot()
         self.save(self.logdir + f'/bols_init')
@@ -140,7 +140,7 @@ class BOLevelSet:
                 noise_var = self.noise_var,
                 mean_function=self.init_fn
                 )
-        self.m.optimize(messages=True)
+        self.m.optimize_restarts(messages=True)
         # self.acq = self.MILE(self.candidates, self.cost_thres, self.conf_thres)
         if to_plot:
             self.plot(iter=plot_iter, plot_acq=False)
@@ -173,7 +173,7 @@ class BOLevelSet:
         self.X = np.vstack((self.X, x_next))
         self.Y = np.vstack((self.Y, y_next))
         self.m.set_XY(X=self.X, Y=self.Y)
-        self.m.optimize(messages=True)
+        self.m.optimize_restarts(messages=True)
         self.acq = self.MILE(self.candidates, self.cost_thres, self.conf_thres)
         if to_plot and plot:
             self.plot(iter=iter)
@@ -207,7 +207,7 @@ class BOLevelSet:
         self.X = np.vstack((self.X, x_next))
         self.Y = np.vstack((self.Y, y_next))
         self.m.set_XY(X=self.X, Y=self.Y)
-        self.m.optimize(messages=True)
+        self.m.optimize_restarts(messages=True)
         if to_plot and plot:
             self.plot(iter=iter, plot_acq=False)
         if save:
@@ -264,7 +264,7 @@ class BOLevelSet:
             #         self.Y = np.vstack((self.Y, y_next))
 
         self.m.set_XY(X=self.X, Y=self.Y)
-        self.m.optimize(messages=True)
+        self.m.optimize_restarts(messages=True)
         if to_plot and plot:
             self.plot(iter=iter, plot_acq=False)
         if save:
@@ -290,7 +290,7 @@ class BOLevelSet:
             self.Y = np.vstack((self.Y, y_next))
 
         self.m.set_XY(X=self.X, Y=self.Y)
-        self.m.optimize(messages=True)
+        self.m.optimize_restarts(messages=True)
         if to_plot and plot:
             self.plot(iter=iter, plot_acq=False)
         if save:
@@ -431,7 +431,7 @@ class BOLevelSet:
             print("\nNO COUNTEREXAMPLES")
 
         i = 0
-        while num_current_counterexamples > stopping_point: 
+        while num_current_counterexamples > stopping_point and i < 200: 
             print(f"optimizing step {i}")
             self.optimize_once_picktolearn(counterexamples, non_counterexamples, rng_instance, 
                                         to_plot, plot=((i+1) % plot_every == 0), save=((i+1) % save_every == 0), 

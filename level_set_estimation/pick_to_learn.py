@@ -28,7 +28,7 @@ NUM_BO_INIT_ITERS = 40 #10   # Amount of initial random samples
 ########################### RANDOM SEED SETTINGS ###########################
 RANDOM_SEED = 0 #100  # If only a single seed is being run
 RNG = np.random.default_rng(RANDOM_SEED)
-MULTIPLE_SEEDS = True 
+MULTIPLE_SEEDS = False 
 MULTIPLE_SEED_LIST = [0, 1, 2, 3, 17, 22, 100]
 MULTIPLE_RNG_LIST = [np.random.default_rng(seed) for seed in MULTIPLE_SEED_LIST]
 if MULTIPLE_SEEDS: assert len(MULTIPLE_SEED_LIST) > 0
@@ -36,6 +36,7 @@ if MULTIPLE_SEEDS: assert len(MULTIPLE_SEED_LIST) > 0
 ########################### PICK-TO-LEARN BOUND SETTINGS ###########################
 DELTA = 1e-4
 WORLD_DISCRETIZATION = 0.5  # Dictates the size of D
+DESIRED_N = 1000 #3600
 
 ########################### OTHER SETTINGS ###########################
 VALIDATION_DISCRETIZATION = 0.5
@@ -253,24 +254,29 @@ def validate_final_level_set(bols, candidates, true_costs):
 F = batched_rollouts_generator(all_values)
 
 ########################### GET D ALONG WITH GROUND TRUTH COSTS ###########################
-if os.path.isfile("D.pkl"):
-    with open("D.pkl", "rb") as f:
+if os.path.isfile(f"D_{DESIRED_N}.pkl"):
+    with open(f"D_{DESIRED_N}.pkl", "rb") as f:
         D_candidates, D_true_costs = pickle.load(f)
 else:
-    D_candidates, D_true_costs = get_ground_truths_for_a_grid(F, discretization=WORLD_DISCRETIZATION)
-    with open('D.pkl', 'wb') as f:
+    # D_candidates, D_true_costs = get_ground_truths_for_a_grid(F, discretization=WORLD_DISCRETIZATION)
+    D_candidates, D_true_costs = get_ground_truths_for_random_points(range_x, RNG, F, DESIRED_N)
+    with open(f'D_{DESIRED_N}.pkl', 'wb') as f:
         pickle.dump([D_candidates, D_true_costs], f)
 N = len(D_candidates)
+assert N == DESIRED_N
+plt.scatter(D_candidates[:, 0], D_candidates[:, 1])
+plt.show()
 
 ########################### GET VALIDATION DATASET ###########################
-# if os.path.isfile("validation_data.pkl"):
-#     with open("validation_data.pkl", "rb") as f:
-#         validation_candidates, validation_true_costs = pickle.load(f)
-# else:
-#     validation_candidates, validation_true_costs = get_ground_truths_for_a_grid(F, discretization=VALIDATION_DISCRETIZATION)
-#     with open('validation.pkl', 'wb') as f:
-#         pickle.dump([validation_candidates, validation_true_costs], f)
-validation_candidates, validation_true_costs = D_candidates, D_true_costs
+if os.path.isfile("validation_data.pkl"):
+    with open("validation_data.pkl", "rb") as f:
+        validation_candidates, validation_true_costs = pickle.load(f)
+else:
+    validation_candidates, validation_true_costs = get_ground_truths_for_a_grid(F, discretization=VALIDATION_DISCRETIZATION)
+    with open('validation_data.pkl', 'wb') as f:
+        pickle.dump([validation_candidates, validation_true_costs], f)
+# plt.scatter(validation_candidates[:, 0], validation_candidates[:, 1])
+# plt.show()
 
 ########################### FIT INITIAL GAUSSIAN PROCESS ###########################
 mean_function = GPy.core.Mapping(2,1)
@@ -288,7 +294,10 @@ logdir = 'picktolearn_model_dir'
 bo_init_iters = NUM_BO_INIT_ITERS
 if MULTIPLE_SEEDS:
     bols_list = []
-    for rng in MULTIPLE_RNG_LIST:
+    for i in range(len(MULTIPLE_RNG_LIST)):
+        rng = MULTIPLE_RNG_LIST[i]
+        seed_val = MULTIPLE_SEED_LIST[i]
+        np.random.seed(seed_val)
         bols = BOLevelSet(F, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, 
                         CONF_THRES, length_scale, logdir)
         bols_list.append(bols)
@@ -305,6 +314,7 @@ if MULTIPLE_SEEDS:
         original_cand_len = plot_main_gp(bols, grid, candidates, oned_x, fig_name, 
                                             fig_name_colorbar, mile_name)
 else:
+    np.random.seed(RANDOM_SEED)
     bols = BOLevelSet(F, mean_function, input_dim, candidates, range_x, noise_var, cost_thres, 
                         CONF_THRES, length_scale, logdir)
     bols.initial_setup(bo_init_iters, RNG)
@@ -331,7 +341,8 @@ if MULTIPLE_SEEDS:
         plt.plot(range(len(bols.num_counterexamples_list)), bols.num_counterexamples_list)
         plt.savefig(bols.logdir + f'/counterexs{seed}.png')
 
-        unique_values, counts = np.unique(bols.acq_cache, return_counts=True)
+        acq_cache = np.array(bols.acq_cache).squeeze()
+        unique_values, counts = np.unique(acq_cache, axis=0, return_counts=True)
         size_T = len(unique_values)
         size_Ts.append(size_T)
         epsL, epsU = find_epsLU(size_T, N, DELTA)
@@ -351,7 +362,8 @@ else:
     plt.plot(range(len(bols.num_counterexamples_list)), bols.num_counterexamples_list)
     plt.savefig(bols.logdir + f'/counterexs.png')
 
-    unique_values, counts = np.unique(bols.acq_cache, return_counts=True)
+    acq_cache = np.array(bols.acq_cache).squeeze()
+    unique_values, counts = np.unique(acq_cache, axis=0, return_counts=True)
     size_T = len(unique_values)
     epsL, epsU = find_epsLU(size_T, N, DELTA)
     print("SIZE_T", size_T)
