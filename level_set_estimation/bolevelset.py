@@ -21,6 +21,71 @@ class BOLevelSet:
         self.acq_cache = []
         self.num_counterexamples_list = []
 
+        # self.points_to_query = [[-13.,  -4.], [-11.,  -2.], [ -2.,   7.], [ -7.,   5.], \
+        #         [  4.,   8.], [ -4.,  12.], [ -4.,   5.], [ -9.,   1.], \
+        #         [  2.,   6.], [  2.,  -7.], [ -5.,   4.], [  5.,   3.], \
+        #         [ -4.,  -5.], [  7.,  -4.], [  6.,  -1.], [ -8.,   2.], \
+        #         [  5.,  -1.], [ -3.,  -5.], [ -8.,  -2.], [-15., -15.], \
+        #         [  1.,   5.], [ -1.,  -5.], [ -5.,  -4.], [ -1.,   5.], \
+        #         [  2.,  -5.], [  5.,   1.], [-15., -15.], [-15., -15.], \
+        #         [-15., -15.], [-15., -15.]]
+        # self.points_to_query = [[-13.,  -4.], [-11.,  -2.], [ -2.,   7.], [ -7.,   5.], \
+        #         [  4.,   8.], [ -4.,  12.], [ -4.,   5.], [ -9.,   1.], \
+        #         [  2.,   6.], [  2.,  -7.], [ -5.,   4.], [  5.,   3.], \
+        #         [ -4.,  -5.], [  7.,  -4.], [  6.,  -1.], [ -8.,   2.], \
+        #         [  5.,  -1.], [ -3.,  -5.], [ -8.,  -2.], [-6., -3.], \
+        #         [  1.,   5.], [ -1.,  -5.], [ -5.,  -4.], [ -1.,   5.], \
+        #         [  2.,  -5.], [  5.,   1.], [4., -3.], [-7., -6.], \
+        #         [0., 0.], [-15., -15.]]
+        # self.points_to_query = [[-13.,  -4.], [-11.,  -2.], [ -2.,   7.], [ -7.,   5.], \
+        #         [  4.,   8.], [ -4.,  12.], [ -4.,   5.], [ -9.,   1.], \
+        #         [  2.,   6.], [  2.,  -7.], [ -5.,   4.], [  5.,   3.], \
+        #         [ -4.,  -10.], [  7.,  -4.], [  10.,  -1.], [ -8.,   2.], \
+        #         [  5.,  -1.], [ -3.,  -5.], [ -8.,  -2.], [-6., -3.], \
+        #         [  1.,   5.], [ -1.,  -5.], [ -5.,  -4.], [ -1.,   5.], \
+        #         [  2.,  -5.], [  5.,   1.], [4., -3.], [-7., -6.], \
+        #         [0., 0.], [-15., -15.]]
+        # self.points_to_query = [[ -4.,   5.], [ -9.,   1.], [ -5.,   4.], \
+        #         [ -8.,   2.], [  5.,  -1.], [ -3.,  -5.], [ -8.,  -2.], [-6., -3.], \
+        #         [  1.,   5.], [ -1.,  -5.], [ -5.,  -4.], [ -1.,   5.], \
+        #         [  2.,  -5.], [  5.,   1.], [4., -3.], [0., 0.], [0., 0.], [0., 0.], [0., 0.], [0., 0.], [0., 0.], [0., 0.], [0., 0.], [0., 0.], [0., 0.], [0., 0.], [0., 0.], [0., 0.], [0., 0.], [0., 0.]]
+        # self.points_to_query = [[ -4.,   5.], [ -9.,   1.], [ -5.,   4.], \
+        #         [ -8.,   2.], [  5.,  -1.], [ -3.,  -5.], [ -8.,  -2.], [-6., -3.], \
+        #         [  1.,   5.], [ -1.,  -5.], [ -5.,  -4.], [ -1.,   5.], \
+        #         [  2.,  -5.], [  5.,   1.], [4., -3.], \
+        #         [-4., -5.], [-9., -1.], [5., 1.], \
+        #         [-3., 5.], [-6., 3.], [1., -5.], [-1., 5.], [-5., 4.], \
+        #         [2., 5.], [5., -1.], [4., 3.], [3., -4.], [3., 4.], [10., -1.], [10., 1.]]
+        # self.points_to_query = [[ -9.,   1.], [ -5.,   4.], \
+        #         [ -8.,   2.], [  5.,  -1.], [ -3.,  -5.], [ -8.,  -2.], [-6., -3.], \
+        #         [  1.,   5.], [ -1.,  -5.], [ -5.,  -4.], [ -1.,   5.], \
+        #         [  2.,  -5.], [  5.,   1.], [4., -3.], \
+        #         [-9., -1.], [5., 1.], \
+        #         [-3., 5.], [-6., 3.], [1., -5.], [-1., 5.], [-5., 4.], \
+        #         [2., 5.], [5., -1.], [4., 3.], [3., -4.], [3., 4.], [10., -1.], [10., 1.], \
+        #         [-13.,  -4.], [-11.,  -2.]]
+        # self.points_to_query = [[10., -1.], [3., 10.], \
+        #         [-13.,  -4.], [-3.,  -10.], \
+        #         [ -9.,   1.], [ -5.,   4.], \
+        #         [ -8.,   2.], [  5.,  -1.], [ -3.,  -5.], [ -8.,  -2.], [-6., -3.], \
+        #         [  1.,   5.], [ -1.,  -5.], [ -5.,  -4.], [ -1.,   5.], \
+        #         [  2.,  -5.], [  5.,   1.], [4., -3.], \
+        #         [-9., -1.], [5., 1.], \
+        #         [-3., 5.], [-6., 3.], [1., -5.], [-1., 5.], [-5., 4.], \
+        #         [2., 5.], [5., -1.], [4., 3.], [3., -4.], [3., 4.]]
+        self.points_to_query = [[ -9.,   1.], [ -5.,   4.], \
+                [ -8.,   2.], [  5.,  -1.], [ -3.,  -5.], [ -8.,  -2.], [-6., -3.], \
+                [  1.,   5.], [ -1.,  -5.], [ -5.,  -4.], [ -1.,   5.], \
+                [  2.,  -5.], [  5.,   1.], [4., -3.], \
+                [-9., -1.], [5., 1.], \
+                [-3., 5.], [-6., 3.], [1., -5.], [-1., 5.], [-5., 4.], \
+                [2., 5.], [5., -1.], [4., 3.], [3., -4.], [3., 4.], \
+                [10., -1.], [3., 10.], \
+                [-13.,  -4.], [-3.,  -10.]]
+        self.points_to_query_index = 0
+        # Not on boundary
+        # [-13.,  -4.], [-11.,  -2.], [ -2.,   7.], [ -7.,   5.], [  4.,   8.], [ -4.,  12.], [  2.,   6.], [  2.,  -7.], [  5.,   3.], [ -4.,  -10.], [  7.,  -4.], [  10.,  -1.], [0., 0.], [-15., -15.], [-7., -6.],
+
     def initial_setup(self, warmstart_sample, rng_instance):
         X_init = []
         for i in range(self.input_dim):
@@ -148,23 +213,35 @@ class BOLevelSet:
         if save:
             self.save(self.logdir + f'/bols_{iter}')
     
-    def optimize_once_counterexamples(self, counterexamples, rng_instance, 
+    def optimize_once_counterexamples(self, counterexamples, non_counterexamples, rng_instance, 
                                         to_plot=True, plot=True, save=False, iter=0):
-        if len(counterexamples) > 1e7: #500:
-            x_next = []
-            for _ in range(3):
-                x_1 = rng_instance.uniform(
-                    self.range_x[0][0],
-                    self.range_x[0][1])
-                x_2 = rng_instance.uniform(
-                    self.range_x[1][0],
-                    self.range_x[1][1])
-                x_next.append([x_1, x_2])
-                self.acq_cache.append([[x_1, x_2]])
+        if len(counterexamples) > 1e7:#100: #1e7: #500:
+        # if len(self.num_counterexamples_list) >= 2 and \
+        #      self.num_counterexamples_list[-1] > self.num_counterexamples_list[-2] and \
+        #          len(non_counterexamples) > 0:
+            # x_next = []
+            # for _ in range(1):
+            #     x_1 = rng_instance.uniform(
+            #         self.range_x[0][0], 
+            #         self.range_x[0][1])
+            #     x_2 = rng_instance.uniform(
+            #         self.range_x[1][0],
+            #         self.range_x[1][1])
+            #     x_next.append([x_1, x_2])
+            #     self.acq_cache.append([[x_1, x_2]])
+            # y_next = self.f(x_next)
+            # self.X = np.vstack((self.X, x_next))
+            # self.Y = np.vstack((self.Y, y_next))
+            random_noncounterexample_ind = rng_instance.integers(0, len(non_counterexamples)) 
+            random_noncounterexample = non_counterexamples[random_noncounterexample_ind]
+            x_next = [random_noncounterexample]
+            self.acq_cache.append(x_next)
             y_next = self.f(x_next)
             self.X = np.vstack((self.X, x_next))
             self.Y = np.vstack((self.Y, y_next))
         else:
+            # x_next = [self.points_to_query[self.points_to_query_index]]
+            # self.points_to_query_index += 1
             random_counterexample_ind = rng_instance.integers(0, len(counterexamples)) 
             random_counterexample = counterexamples[random_counterexample_ind]
             x_next = [random_counterexample]
@@ -185,6 +262,32 @@ class BOLevelSet:
             #         y_next = self.f(x_next)
             #         self.X = np.vstack((self.X, x_next))
             #         self.Y = np.vstack((self.Y, y_next))
+
+        self.m.set_XY(X=self.X, Y=self.Y)
+        self.m.optimize(messages=True)
+        if to_plot and plot:
+            self.plot(iter=iter, plot_acq=False)
+        if save:
+            self.save(self.logdir + f'/bols_{iter}')
+    
+    def optimize_once_picktolearn(self, counterexamples, non_counterexamples, rng_instance, 
+                                        to_plot=True, plot=True, save=False, iter=0):
+        if len(counterexamples) > 1e7:#100: #1e7: #500:
+            random_noncounterexample_ind = rng_instance.integers(0, len(non_counterexamples)) 
+            random_noncounterexample = non_counterexamples[random_noncounterexample_ind]
+            x_next = [random_noncounterexample]
+            self.acq_cache.append(x_next)
+            y_next = self.f(x_next)
+            self.X = np.vstack((self.X, x_next))
+            self.Y = np.vstack((self.Y, y_next))
+        else:
+            random_counterexample_ind = rng_instance.integers(0, len(counterexamples)) 
+            random_counterexample = counterexamples[random_counterexample_ind]
+            x_next = [random_counterexample]
+            self.acq_cache.append(x_next)
+            y_next = self.f(x_next)
+            self.X = np.vstack((self.X, x_next))
+            self.Y = np.vstack((self.Y, y_next))
 
         self.m.set_XY(X=self.X, Y=self.Y)
         self.m.optimize(messages=True)
@@ -277,13 +380,17 @@ class BOLevelSet:
             true_below_zero = np.where(true_costs <= 0)
             true_above_zero = np.where(true_costs > 0) 
 
-            true_pos = np.intersect1d(gp_below_zero, true_below_zero)
             false_pos = np.intersect1d(gp_below_zero, true_above_zero)
-            true_neg = np.intersect1d(gp_above_zero, true_above_zero)
             false_neg = np.intersect1d(gp_above_zero, true_below_zero)
+
+            true_pos = np.intersect1d(gp_below_zero, true_below_zero)
+            true_neg = np.intersect1d(gp_above_zero, true_above_zero)
 
             counterexample_inds = np.union1d(false_pos, false_neg)
             counterexamples = search_candidates[counterexample_inds]
+
+            non_counterexample_inds = np.union1d(true_pos, true_neg)
+            non_counterexamples = search_candidates[non_counterexample_inds]
 
             self.num_counterexamples_list.append(len(counterexamples))
             print("COUNTEREXAMPLES", len(counterexamples))
@@ -291,10 +398,72 @@ class BOLevelSet:
             if len(counterexamples) == 0:
                 print("\nNO COUNTEREXAMPLES")
             else:
-                self.optimize_once_counterexamples(counterexamples, rng_instance, 
+                self.optimize_once_counterexamples(counterexamples, non_counterexamples, rng_instance, 
                                     to_plot, plot=((i+1) % plot_every == 0), save=((i+1) % save_every == 0), 
                                     iter=i)
             
+        print("All points queried: ", np.array(self.acq_cache))
+        print("Counterexamples over time: ", self.num_counterexamples_list)
+    
+    def optimize_loop_picktolearn(self, candidates, true_costs, beta, 
+                                        rng_instance, stopping_point=1,
+                                        to_plot=True, plot_every=1, save_every=10):
+        mu, var = self.m.predict(candidates, full_cov=False)
+        criterion = mu - beta * np.sqrt(var) # Conservative bc more likely to say state is in BRT
+        assert len(criterion) == len(true_costs)
+        gp_below_zero = np.where(criterion <= 0)
+        gp_above_zero = np.where(criterion > 0)
+        true_below_zero = np.where(true_costs <= 0)
+        true_above_zero = np.where(true_costs > 0) 
+        false_pos = np.intersect1d(gp_below_zero, true_above_zero)
+        false_neg = np.intersect1d(gp_above_zero, true_below_zero)
+        true_pos = np.intersect1d(gp_below_zero, true_below_zero)
+        true_neg = np.intersect1d(gp_above_zero, true_above_zero)
+        counterexample_inds = np.union1d(false_pos, false_neg)
+        counterexamples = candidates[counterexample_inds]
+        non_counterexample_inds = np.union1d(true_pos, true_neg)
+        non_counterexamples = candidates[non_counterexample_inds]
+        self.num_counterexamples_list.append(len(counterexamples))
+        num_current_counterexamples = len(counterexamples)
+        print("COUNTEREXAMPLES", len(counterexamples))
+
+        if num_current_counterexamples == 0:
+            print("\nNO COUNTEREXAMPLES")
+
+        i = 0
+        while num_current_counterexamples > stopping_point: 
+            print(f"optimizing step {i}")
+            self.optimize_once_picktolearn(counterexamples, non_counterexamples, rng_instance, 
+                                        to_plot, plot=((i+1) % plot_every == 0), save=((i+1) % save_every == 0), 
+                                        iter=i)
+
+            mu, var = self.m.predict(candidates, full_cov=False)
+            criterion = mu - beta * np.sqrt(var) # Conservative bc more likely to say state is in BRT
+        
+            assert len(criterion) == len(true_costs)
+            gp_below_zero = np.where(criterion <= 0)
+            gp_above_zero = np.where(criterion > 0)
+            true_below_zero = np.where(true_costs <= 0)
+            true_above_zero = np.where(true_costs > 0) 
+
+            false_pos = np.intersect1d(gp_below_zero, true_above_zero)
+            false_neg = np.intersect1d(gp_above_zero, true_below_zero)
+
+            true_pos = np.intersect1d(gp_below_zero, true_below_zero)
+            true_neg = np.intersect1d(gp_above_zero, true_above_zero)
+
+            counterexample_inds = np.union1d(false_pos, false_neg)
+            counterexamples = candidates[counterexample_inds]
+
+            non_counterexample_inds = np.union1d(true_pos, true_neg)
+            non_counterexamples = candidates[non_counterexample_inds]
+
+            self.num_counterexamples_list.append(len(counterexamples))
+            num_current_counterexamples = len(counterexamples)
+            print("COUNTEREXAMPLES", len(counterexamples))
+            
+            i += 1
+
         print("All points queried: ", np.array(self.acq_cache))
         print("Counterexamples over time: ", self.num_counterexamples_list)
 

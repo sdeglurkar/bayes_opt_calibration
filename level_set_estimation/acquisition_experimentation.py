@@ -18,20 +18,20 @@ TRAJ_TIME_STEPS = int(np.abs(FINAL_TIME)/DT)
 goal_R = 5
 CONF_THRES = 0.9
 BETA = norm.ppf(CONF_THRES)
-NUM_BO_INIT_ITERS = 10   # Amount of initial random samples
-NUM_BO_ITERS = 30  # Set to 0 if only random sampling is desired
+NUM_BO_INIT_ITERS = 40 #10   # Amount of initial random samples
+NUM_BO_ITERS = 10 #30  # Set to 0 if only random sampling is desired
 USE_MILE = False
-COUNTEREXAMPLE_GUIDED = True 
-ERROR_GP = False 
-ERROR_IS_BINARY = True
-ERROR_GP_SCHEDULE = False
+COUNTEREXAMPLE_GUIDED = False 
+ERROR_GP = True 
+ERROR_IS_BINARY = False
+ERROR_GP_SCHEDULE = True
 assert not (USE_MILE and COUNTEREXAMPLE_GUIDED and ERROR_GP) # Pick one
 if ERROR_IS_BINARY: assert not ERROR_GP_SCHEDULE  # No scheduling available if error is binary
 PLOT_DURING_ACQUISITION = False
 SIZE_CALIBRATION_SET = 100
-RANDOM_SEED = 100 
+RANDOM_SEED = 0 #100  # If only a single seed is being run
 RNG = np.random.default_rng(RANDOM_SEED)
-MULTIPLE_SEEDS = True
+MULTIPLE_SEEDS = True 
 MULTIPLE_SEED_LIST = [0, 1, 2, 3, 17, 22, 100]
 MULTIPLE_RNG_LIST = [np.random.default_rng(seed) for seed in MULTIPLE_SEED_LIST]
 if MULTIPLE_SEEDS: assert len(MULTIPLE_SEED_LIST) > 0
@@ -211,7 +211,7 @@ def plot_main_gp(bols, grid, candidates, oned_x, fig_name, fig_name_colorbar, mi
                 linewidths=2)
     if len(bols.acq_cache) > 0:
         acq_points = np.array(bols.acq_cache).squeeze()
-        plt.scatter(acq_points[:, 0], acq_points[:, 1], color='r')
+        plt.scatter(acq_points[:, 0], acq_points[:, 1], color='g')
     plt.savefig(fig_name)
     plt.figure()
     plt.contourf(oned_x,
