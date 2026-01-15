@@ -28,7 +28,7 @@ NUM_BO_INIT_ITERS = 40 #10   # Amount of initial random samples
 ########################### RANDOM SEED SETTINGS ###########################
 RANDOM_SEED = 0 #100  # If only a single seed is being run
 RNG = np.random.default_rng(RANDOM_SEED)
-MULTIPLE_SEEDS = True 
+MULTIPLE_SEEDS = False 
 MULTIPLE_SEED_LIST = [0, 1, 2, 3, 17, 22, 100]
 MULTIPLE_RNG_LIST = [np.random.default_rng(seed) for seed in MULTIPLE_SEED_LIST]
 if MULTIPLE_SEEDS: assert len(MULTIPLE_SEED_LIST) > 0
@@ -36,7 +36,7 @@ if MULTIPLE_SEEDS: assert len(MULTIPLE_SEED_LIST) > 0
 ########################### PICK-TO-LEARN BOUND SETTINGS ###########################
 DELTA = 1e-4
 WORLD_DISCRETIZATION = 0.5  # Dictates the size of D if gridding the space
-DESIRED_N = 3600 #1000 #3600
+DESIRED_N = 3600 #500 #1000 #3600
 
 ########################### OTHER SETTINGS ###########################
 VALIDATION_DISCRETIZATION = 0.5
