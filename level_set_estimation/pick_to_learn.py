@@ -28,19 +28,21 @@ NUM_BO_INIT_ITERS = 40 #10   # Amount of initial random samples
 ########################### RANDOM SEED SETTINGS ###########################
 RANDOM_SEED = 0 #100  # If only a single seed is being run
 RNG = np.random.default_rng(RANDOM_SEED)
-MULTIPLE_SEEDS = False 
+MULTIPLE_SEEDS = True 
 MULTIPLE_SEED_LIST = [0, 1, 2, 3, 17, 22, 100]
 MULTIPLE_RNG_LIST = [np.random.default_rng(seed) for seed in MULTIPLE_SEED_LIST]
 if MULTIPLE_SEEDS: assert len(MULTIPLE_SEED_LIST) > 0
 
 ########################### PICK-TO-LEARN BOUND SETTINGS ###########################
 DELTA = 1e-4
-WORLD_DISCRETIZATION = 0.5  # Dictates the size of D
-DESIRED_N = 1000 #3600
+WORLD_DISCRETIZATION = 0.5  # Dictates the size of D if gridding the space
+DESIRED_N = 3600 #1000 #3600
 
 ########################### OTHER SETTINGS ###########################
 VALIDATION_DISCRETIZATION = 0.5
 PLOT_DURING_ACQUISITION = False
+PLOT_D = False
+PLOT_VALIDATION_DATA = False
 
 ########################### GET OPTIMAL VALUE FUNCTION -- BRT ###########################
 class DubinsCar(hj.ControlAndDisturbanceAffineDynamics):
@@ -264,8 +266,9 @@ else:
         pickle.dump([D_candidates, D_true_costs], f)
 N = len(D_candidates)
 assert N == DESIRED_N
-plt.scatter(D_candidates[:, 0], D_candidates[:, 1])
-plt.show()
+if PLOT_D:
+    plt.scatter(D_candidates[:, 0], D_candidates[:, 1])
+    plt.show()
 
 ########################### GET VALIDATION DATASET ###########################
 if os.path.isfile("validation_data.pkl"):
@@ -275,8 +278,9 @@ else:
     validation_candidates, validation_true_costs = get_ground_truths_for_a_grid(F, discretization=VALIDATION_DISCRETIZATION)
     with open('validation_data.pkl', 'wb') as f:
         pickle.dump([validation_candidates, validation_true_costs], f)
-# plt.scatter(validation_candidates[:, 0], validation_candidates[:, 1])
-# plt.show()
+if PLOT_VALIDATION_DATA:
+    plt.scatter(validation_candidates[:, 0], validation_candidates[:, 1])
+    plt.show()
 
 ########################### FIT INITIAL GAUSSIAN PROCESS ###########################
 mean_function = GPy.core.Mapping(2,1)
