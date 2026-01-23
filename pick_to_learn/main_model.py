@@ -20,7 +20,7 @@ class MainGP:
         self.logdir = logdir
         self.acq_cache = []
     
-    def initial_setup(self, warmstart_sample, rng_instance):
+    def initial_setup(self, warmstart_sample, rng_instance, to_plot=True):
         X_init = []
         for i in range(self.input_dim):
             X_i_init = rng_instance.uniform(
@@ -49,7 +49,8 @@ class MainGP:
         self.m.optimize_restarts(messages=True)
         if self.do_MILE:
             self.acq = self.MILE(self.candidates, self.cost_thres, self.conf_thres)
-        self.plot(plot_acq=self.do_MILE)
+        if to_plot and self.logdir is not None:
+            self.plot(plot_acq=self.do_MILE)
         self.save(self.logdir + f'/bols_init')
 
     def get_error_of_model_for_points(self, points_x, points_y_true, beta):
@@ -72,7 +73,7 @@ class MainGP:
         return e
 
     def score_function(self, candidate_xs, rng_instance, error_function, 
-                            beta, weights=[0.5, 0.1]):
+                            beta, weights=[1.0, 0.0, 0.001]):
         '''
         NOTE: error_function != ehat
         ehat = final_scores + beta * error_variances
@@ -85,28 +86,38 @@ class MainGP:
         errors, error_variances = error_function(candidate_xs)
         errors = errors/sum(errors)  # Normalize
         rand_nums = rng_instance.uniform(low=0.0, high=1.0, size=errors.shape)
-        final_scores = dist_from_boundary + weights[0] * errors + weights[1] * rand_nums
+        final_scores = weights[0] * dist_from_boundary + weights[1] * errors + \
+                        weights[2] * rand_nums
         final_scores = final_scores/sum(final_scores)  # Normalize
         return final_scores, error_variances
     
-    def optimize_once(self, ehat, candidate_xs,
-                            to_plot=True, plot=True, save=False, iter=0):
-        '''
-        ehat = final_scores + beta * error_variances
-        Pick the point that maximizes ehat and fit the model.
-        '''
-        argmax_index = np.argmax(ehat)
-        x_next = candidate_xs[argmax_index]
-        self.acq_cache.append(x_next)
-        y_next = self.f(x_next) 
-        self.X = np.vstack((self.X, x_next))
-        self.Y = np.vstack((self.Y, y_next))
-        self.m.set_XY(X=self.X, Y=self.Y)
+    def optimize_given_T(self, T_x, T_y,
+                                to_plot=True, plot=True, save=False, iter=0):
+        self.m.set_XY(X=T_x, Y=T_y)
         self.m.optimize_restarts(messages=True)
-        if to_plot and plot:
+        if to_plot and plot and self.logdir is not None:
             self.plot(iter=iter)
         if save:
             self.save(self.logdir + f'/bols_{iter}')
+
+    # def optimize_once(self, ehat, candidate_xs,
+    #                         to_plot=True, plot=True, save=False, iter=0):
+    #     '''
+    #     ehat = final_scores + lambda * error_variances
+    #     Pick the point that maximizes ehat and fit the model.
+    #     '''
+    #     argmax_index = np.argmax(ehat)
+    #     x_next = candidate_xs[argmax_index]
+    #     self.acq_cache.append(x_next)
+    #     y_next = self.f(x_next) 
+    #     self.X = np.vstack((self.X, x_next))
+    #     self.Y = np.vstack((self.Y, y_next))
+    #     self.m.set_XY(X=self.X, Y=self.Y)
+    #     self.m.optimize_restarts(messages=True)
+    #     if to_plot and plot and self.logdir is not None:
+    #         self.plot(iter=iter)
+    #     if save:
+    #         self.save(self.logdir + f'/bols_{iter}')
 
     def extract_levelset(self, x_test):
         raise NotImplementedError

@@ -13,8 +13,12 @@ goal_R = 5
 RANGE_X = [[-15, 15], [-15, 15]]
 
 ########################### GAUSSIAN PROCESS SETTINGS ###########################
+INPUT_DIM = 2
 CONF_THRES = 0.9
 BETA = norm.ppf(CONF_THRES)
+NOISE_VAR = 0.001 
+COST_THRES = 0.0 
+LENGTH_SCALE = 0.25
 NUM_MODEL_INIT_ITERS = 40 #10   # Amount of initial random samples
 # NUM_BO_ITERS = 10 #30  # Set to 0 if only random sampling is desired
 
@@ -35,23 +39,23 @@ DESIRED_N = 3600 #500 #1000 #3600
 ALPHA = 0.05
 NUM_CALIBRATION_POINTS = 100
 NUM_ERROR_GP_POINTS = 50
+EHAT_THRESHOLD = 0.5
+MAX_NUM_ACQUIRED_POINTS = 100
 
 ########################### OTHER SETTINGS ###########################
 VALIDATION_DISCRETIZATION = 0.5
 PLOT_DURING_ACQUISITION = False
 PLOT_D = False
 PLOT_VALIDATION_DATA = False
+LOGDIR = 'approx_picktolearn_model_dir'
+ERROR_GP_LOGDIR = 'approx_picktolearn_errorgp_dir'
 
 ########################### GET OPTIMAL VALUE FUNCTION -- BRT ###########################
-range_x = RANGE_X
-dubins_velocity = DUBINS_VELOCITY 
-theta_value = THETA_VALUE 
-final_time = FINAL_TIME
+ALL_VALUES, THETA_INDEX, GRID, DYNAMICS = \
+        solve_brt(DUBINS_VELOCITY, THETA_VALUE, goal_R, FINAL_TIME, RANGE_X)
 
-all_values, theta_index, grid, dynamics = \
-        solve_brt(dubins_velocity, theta_value, goal_R, final_time, range_x)
-
-F = batched_rollouts_generator(all_values, grid, dynamics, TRAJ_TIME_STEPS, DT, goal_R, theta_value)
+F = batched_rollouts_generator(ALL_VALUES, GRID, DYNAMICS, TRAJ_TIME_STEPS, DT, 
+                                goal_R, THETA_VALUE)
 
 
     

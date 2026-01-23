@@ -35,7 +35,8 @@ class ErrorGP:
         self.m.optimize_restarts(messages=True)
         if to_plot and self.logdir is not None:
             self.plot(iter=plot_iter)
-        if self.logdir is not None: self.save(self.logdir + f'/error_gp_init')
+        if self.logdir is not None: 
+            self.save(self.logdir + f'/error_gp_init')
 
     def forward(self):
         def call_fn(x):

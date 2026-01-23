@@ -2,7 +2,7 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 
-from bolevelset import BOLevelSet
+from main_model import MainGP
 
 def batched_rollouts_generator(value_fn, grid, dynamics, time_steps, dt, goal_R, theta_value):
     value_gradients = grid.grad_values(value_fn[-1, :, :, :])
@@ -32,19 +32,19 @@ def batched_rollouts_generator(value_fn, grid, dynamics, time_steps, dt, goal_R,
     
     return batched_rollouts
 
-def plot_main_gp(bols, grid, candidates, oned_x, value_fn, theta_index, 
+def plot_main_gp(model, grid, candidates, oned_x, oned_y, value_fn, theta_index, 
                     beta, fig_name, fig_name_colorbar, mile_name):
     plt.figure()
-    # bols.m.plot()
+    # model.m.plot()
     plt.contour(grid.coordinate_vectors[0],
                 grid.coordinate_vectors[1],
                 value_fn[-1, :, :, theta_index].T,
                 levels=[0.0],
                 colors="black",
                 linewidths=3)
-    mu, var = bols.m.predict(candidates, full_cov=False)
+    mu, var = model.m.predict(candidates, full_cov=False)
     criterion = mu + beta * np.sqrt(var)  
-    criterion = criterion.reshape(len(oned_x), len(oned_x))
+    criterion = criterion.reshape(len(oned_x), len(oned_y))
     plt.contour(oned_x,
                 oned_x,
                 criterion,
@@ -52,41 +52,40 @@ def plot_main_gp(bols, grid, candidates, oned_x, value_fn, theta_index,
                 colors="lightblue",
                 linewidths=2)
     criterion = mu - beta * np.sqrt(var)  
-    criterion = criterion.reshape(len(oned_x), len(oned_x))
+    criterion = criterion.reshape(len(oned_x), len(oned_y))
     plt.contour(oned_x,
                 oned_x,
                 criterion,
                 levels=[0.0],
                 colors="blue",
                 linewidths=2)
-    if len(bols.acq_cache) > 0:
-        acq_points = np.array(bols.acq_cache).squeeze()
+    if len(model.acq_cache) > 0:
+        acq_points = np.array(model.acq_cache).squeeze()
         plt.scatter(acq_points[:, 0], acq_points[:, 1], color='g')
     plt.savefig(fig_name)
     plt.figure()
     plt.contourf(oned_x,
-                oned_x,
+                oned_y,
                 criterion)
     plt.colorbar()
     plt.savefig(fig_name_colorbar)
     plt.figure()
-    if bols.do_MILE:
-        x = bols.candidates[:, 0].flatten()
-        y = bols.candidates[:, 1].flatten()
+    if model.do_MILE:
+        x = model.candidates[:, 0].flatten()
+        y = model.candidates[:, 1].flatten()
         original_cand_len = int(np.sqrt(len(x)))
         original_x = x.reshape((original_cand_len, original_cand_len))[0, :]
         original_y = y.reshape((original_cand_len, original_cand_len))[:, 0]
-        z = bols.acq.reshape((original_cand_len, original_cand_len))
-        plt.contourf(original_x, original_y, BOLevelSet.normalize(z))
+        z = model.acq.reshape((original_cand_len, original_cand_len))
+        plt.contourf(original_x, original_y, MainGP.normalize(z))
         plt.colorbar()
         plt.savefig(mile_name)
 
-    return original_cand_len
-
-def get_ground_truths_for_a_grid(f, discretization):
+def get_ground_truths_for_a_grid(f, range_x, discretization):
     print("\nRunning get_ground_truths_for_a_grid!") 
-    oned_x = np.arange(-15, 15, discretization) 
-    xv, yv = np.meshgrid(oned_x, oned_x)
+    oned_x = np.arange(range_x[0][0], range_x[0][1], discretization) 
+    oned_y = np.arange(range_x[1][0], range_x[1][1], discretization) 
+    xv, yv = np.meshgrid(oned_x, oned_y)
     candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1)))
     costs = f(candidates)
     print("Done!")
@@ -107,9 +106,9 @@ def get_ground_truths_for_random_points(range_x, rng, f, size_set):
     print("Done!")
     return random_points, costs_at_random_points
 
-def validate_final_level_set(bols, candidates, true_costs, beta):
+def validate_final_level_set(model, candidates, true_costs, beta):
     print("Running validation of final GP level set")
-    mu, var = bols.m.predict(candidates, full_cov=False)
+    mu, var = model.m.predict(candidates, full_cov=False)
     criterion = mu - beta * np.sqrt(var) # Conservative bc more likely to say state is in BRT
     
     assert len(criterion) == len(true_costs)
