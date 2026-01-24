@@ -28,8 +28,10 @@ class PickToLearn():
         self.model_list = []
         self.error_gp_list = []
         self.rng_list = MULTIPLE_RNG_LIST
+        self.seed_list = MULTIPLE_SEED_LIST
 
     def setup(self):
+        print("Setting up Pick-to-Learn")
         self.D_x, self.D_y = self.get_D()
         self.acq_calib_candidates, self.acq_calib_true_costs = \
             self.get_acquisition_fn_calib_dataset()
@@ -39,13 +41,17 @@ class PickToLearn():
             self.get_validation_dataset()
         self.candidates, self.oned_x, self.oned_y = self.get_candidates_helper() 
         if MULTIPLE_SEEDS:
-            self.model_list = self.fit_initial_model_multiple_seeds(MULTIPLE_RNG_LIST, 
-                                                                    MULTIPLE_SEED_LIST, 
+            self.model_list = self.fit_initial_model_multiple_seeds(self.rng_list, 
+                                                                    self.seed_list, 
                                                                     self.candidates)
-            for model in self.model_list:
+            for i in range(len(self.model_list)):
+                model = self.model_list[i]
+                seed = self.seed_list[i]
                 error_gp_ys = model.get_error_of_model_for_points(self.error_gp_candidates, \
                                                     self.error_gp_true_costs, BETA)
                 error_gp = self.fit_initial_error_gp(self.error_gp_candidates, error_gp_ys)
+                self.plot_error_gp(error_gp, self.candidates, self.oned_x, self.oned_y, 
+                                    ERROR_GP_LOGDIR + f'/gp_init_colorbar{seed}.png')
                 self.error_gp_list.append(error_gp)
                 self.T_x.append([])
                 self.T_y.append([])
@@ -55,11 +61,19 @@ class PickToLearn():
             error_gp_ys = model.get_error_of_model_for_points(self.error_gp_candidates, \
                                                     self.error_gp_true_costs, BETA)
             error_gp = self.fit_initial_error_gp(self.error_gp_candidates, error_gp_ys)
+            self.plot_error_gp(error_gp, self.candidates, self.oned_x, self.oned_y, 
+                                    ERROR_GP_LOGDIR + f'/gp_init_colorbar.png')
             self.error_gp_list = [error_gp]
             self.T_x.append([])
             self.T_y.append([])
+        
+        self.plot_multiple_models(self.model_list, self.seed_list, 
+                                self.candidates, self.oned_x, self.oned_y)
+        
+        print("Done with setup!")
 
     def get_D(self):
+        print("Obtaining D")
         if os.path.isfile(f"D_{DESIRED_N}.pkl"):
             with open(f"D_{DESIRED_N}.pkl", "rb") as f:
                 D_candidates, D_true_costs = pickle.load(f)
@@ -73,10 +87,12 @@ class PickToLearn():
         if PLOT_D:
             plt.scatter(D_candidates[:, 0], D_candidates[:, 1])
             plt.show()
+        print("Done!")
         
         return D_candidates, D_true_costs
 
     def get_error_gp_dataset(self):
+        print("Obtaining Error GP Dataset")
         if os.path.isfile(f"error_gp_data_{NUM_ERROR_GP_POINTS}.pkl"):
             with open(f"error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", "rb") as f:
                 error_gp_candidates, error_gp_true_costs = pickle.load(f)
@@ -85,10 +101,12 @@ class PickToLearn():
                 get_ground_truths_for_random_points(RANGE_X, RNG, F, NUM_ERROR_GP_POINTS)
             with open(f"error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", 'wb') as f:
                 pickle.dump([error_gp_candidates, error_gp_true_costs], f)
+        print("Done!")
 
         return error_gp_candidates, error_gp_true_costs
 
     def get_acquisition_fn_calib_dataset(self):
+        print("Obtaining C")
         if os.path.isfile(f"acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl"):
             with open(f"acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl", "rb") as f:
                 acq_calib_candidates, acq_calib_true_costs = pickle.load(f)
@@ -97,10 +115,12 @@ class PickToLearn():
                 get_ground_truths_for_random_points(RANGE_X, RNG, F, NUM_CALIBRATION_POINTS)
             with open(f"acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl", 'wb') as f:
                 pickle.dump([acq_calib_candidates, acq_calib_true_costs], f)
+        print("Done!")
 
         return acq_calib_candidates, acq_calib_true_costs
         
     def get_validation_dataset(self):
+        print("Obtaining Validation Dataset")
         if os.path.isfile("validation_data.pkl"):
             with open("validation_data.pkl", "rb") as f:
                 validation_candidates, validation_true_costs = pickle.load(f)
@@ -112,6 +132,9 @@ class PickToLearn():
         if PLOT_VALIDATION_DATA:
             plt.scatter(validation_candidates[:, 0], validation_candidates[:, 1])
             plt.show()
+        print("Done!")
+
+        return validation_candidates, validation_true_costs
     
     def get_candidates_helper(self):
         oned_x = np.arange(RANGE_X[0][0], RANGE_X[0][1], 1.0)
@@ -121,14 +144,16 @@ class PickToLearn():
         return candidates, oned_x, oned_y
 
     def fit_initial_model(self, rng_instance, seed_val, candidates):
+        print("Fitting Initial Model")
         mean_function = GPy.core.Mapping(2,1)
         mean_function.f = lambda x: np.expand_dims(x[:, 0]**2 + x[:, 1]**2 - goal_R, -1)
         mean_function.update_gradients = lambda a,b: 0
         mean_function.gradients_X = lambda a,b: 0
         np.random.seed(seed_val)
         model = MainGP(F, mean_function, INPUT_DIM, candidates, RANGE_X, 
-                        NOISE_VAR, COST_THRES, CONF_THRES, LENGTH_SCALE, LOGDIR)
+                        NOISE_VAR, COST_THRES, CONF_THRES, LENGTH_SCALE, logdir=LOGDIR)
         model.initial_setup(NUM_MODEL_INIT_ITERS, rng_instance)
+        print("Done!")
 
         return model
 
@@ -182,42 +207,48 @@ class PickToLearn():
         model.acq_cache.append(new_x)
         self.T_x[model_idx].append(new_x)
         self.T_y[model_idx].append(model.f(new_x))
-        model.optimize_given_T(self.T_x[model_idx], self.T_y[model_idx])
-        remaining = np.setdiff1d(self.D_x, self.T_x[model_idx])
+        model.optimize_given_T(np.array(self.T_x[model_idx])[0], 
+                                np.array(self.T_y[model_idx])[0])
+        remaining = np.set_diff2d(np.array(self.D_x), np.array(self.T_x[model_idx])[0])
+        print(np.array(self.D_x), np.array(self.T_x[model_idx])[0], remaining)
         # Now re-fit the error GP
         error_gp_new_ys = model.get_error_of_model_for_points(self.error_gp_candidates, \
                                                     self.error_gp_true_costs, BETA)
         error_gp.fit(self.error_gp_candidates, error_gp_new_ys)
         error_function = error_gp.forward()
         # Get a_{h,eta}(z) and u_{h,eta}(z)
-        final_scores, error_variances = model.score_function(remaining, 
+        final_scores, error_variances = model.score_function(self.acq_calib_candidates, 
                                         rng_instance, error_function, BETA)
         # Run conformal prediction to get ehat
         e = model.get_error_of_model_for_points(self.acq_calib_candidates, 
                                             self.acq_calib_true_costs, BETA)
         llambda = get_quantile_for_interval_score_fn(final_scores, error_variances, 
                                                         e, ALPHA)
+        final_scores, error_variances = model.score_function(remaining, 
+                                        rng_instance, error_function, BETA)
         ehat = final_scores + llambda * error_variances
         # Find the new z
         argmax_index = np.argmax(ehat)
-        new_x = remaining[argmax_index]
+        new_x = np.expand_dims(remaining[argmax_index], axis=0)
         ehat_value = ehat[argmax_index]
         return new_x, ehat_value
     
     def picktolearn_alg(self, model, error_gp, rng_instance, model_idx):
         error_function = error_gp.forward()
         # Get a_{h,eta}(z) and u_{h,eta}(z)
-        final_scores, error_variances = model.score_function(self.D_x, 
+        final_scores, error_variances = model.score_function(self.acq_calib_candidates, 
                                         rng_instance, error_function, BETA)
         # Run conformal prediction to get ehat
         e = model.get_error_of_model_for_points(self.acq_calib_candidates, 
                                             self.acq_calib_true_costs, BETA)
         llambda = get_quantile_for_interval_score_fn(final_scores, error_variances, 
                                                         e, ALPHA)
+        final_scores, error_variances = model.score_function(self.D_x, 
+                                        rng_instance, error_function, BETA)
         ehat = final_scores + llambda * error_variances
         # Find the new z
         argmax_index = np.argmax(ehat)
-        new_x = self.D_x[argmax_index]
+        new_x = np.expand_dims(self.D_x[argmax_index], axis=0)
         ehat_value = ehat[argmax_index]
 
         while ehat_value >= EHAT_THRESHOLD and \
@@ -230,7 +261,7 @@ class PickToLearn():
         results_dict = {}
         for i in range(len(self.model_list)):
             model = self.model_list[i]
-            seed = MULTIPLE_SEED_LIST[i]
+            seed = self.seed_list[i]
             tpr, fpr, tnr, fnr = validate_final_level_set(model, self.validation_candidates, 
                                                         self.validation_true_costs, BETA)
             results_dict[seed] = [tpr, fpr, tnr, fnr]

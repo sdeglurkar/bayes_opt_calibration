@@ -57,8 +57,9 @@ class MainGP:
         mu, var = self.m.predict(points_x, full_cov=False)
         criterion = mu - beta * np.sqrt(var) # Conservative bc more likely to say state is in BRT
         # 1 is error, 0 is no error
-        error = np.where(criterion <= 0 and points_y_true > 0 or   
-                        criterion > 0 and points_y_true <= 0, 1, 0)  
+        error = ((criterion * points_y_true <= 0) & (criterion != points_y_true)).astype(float)
+        # error = np.where(criterion <= 0 and points_y_true > 0 or   
+        #                 criterion > 0 and points_y_true <= 0, 1, 0)  
         return error
 
     def ground_truth_error(self, candidate_xs, beta, rng_instance, perturb=1e-4):
@@ -82,7 +83,7 @@ class MainGP:
         mu, var = self.m.predict(candidate_xs, full_cov=False)
         criterion = mu - beta * np.sqrt(var) # Conservative bc more likely to say state is in BRT
         dist_from_boundary = np.abs(criterion)
-        dist_from_boundary = dist_from_boundary/sum(dist_from_boundary)  # Normalize
+        dist_from_boundary = 1 - dist_from_boundary/sum(dist_from_boundary)  # Normalize
         errors, error_variances = error_function(candidate_xs)
         errors = errors/sum(errors)  # Normalize
         rand_nums = rng_instance.uniform(low=0.0, high=1.0, size=errors.shape)
@@ -93,10 +94,12 @@ class MainGP:
     
     def optimize_given_T(self, T_x, T_y,
                                 to_plot=True, plot=True, save=False, iter=0):
-        self.m.set_XY(X=T_x, Y=T_y)
+        self.X = np.vstack((self.X, T_x))
+        self.Y = np.vstack((self.Y, T_y))
+        self.m.set_XY(X=self.X, Y=self.Y)
         self.m.optimize_restarts(messages=True)
         if to_plot and plot and self.logdir is not None:
-            self.plot(iter=iter)
+            self.plot(iter=iter, plot_acq=self.do_MILE)
         if save:
             self.save(self.logdir + f'/bols_{iter}')
 
