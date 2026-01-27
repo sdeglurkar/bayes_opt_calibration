@@ -14,5 +14,7 @@ for i in range(len(obj.model_list)):
 
 print(obj.T_x)
 print(obj.T_y)
+obj.plot_multiple_models(obj.model_list, obj.seed_list, obj.candidates, obj.oned_x, 
+                        obj.oned_y, stage='final')
 obj.run_validation()
 

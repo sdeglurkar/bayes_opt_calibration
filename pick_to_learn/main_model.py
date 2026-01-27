@@ -18,7 +18,7 @@ class MainGP:
         self.cost_thres = cost_thres
         self.conf_thres = conf_thres
         self.logdir = logdir
-        self.acq_cache = []
+        self.acq_cache = np.array([[]])
     
     def initial_setup(self, warmstart_sample, rng_instance, to_plot=True):
         X_init = []
@@ -83,13 +83,19 @@ class MainGP:
         mu, var = self.m.predict(candidate_xs, full_cov=False)
         criterion = mu - beta * np.sqrt(var) # Conservative bc more likely to say state is in BRT
         dist_from_boundary = np.abs(criterion)
-        dist_from_boundary = 1 - dist_from_boundary/sum(dist_from_boundary)  # Normalize
-        errors, error_variances = error_function(candidate_xs)
-        errors = errors/sum(errors)  # Normalize
-        rand_nums = rng_instance.uniform(low=0.0, high=1.0, size=errors.shape)
-        final_scores = weights[0] * dist_from_boundary + weights[1] * errors + \
-                        weights[2] * rand_nums
-        final_scores = final_scores/sum(final_scores)  # Normalize
+        # dist_from_boundary = 1 - dist_from_boundary/sum(dist_from_boundary)  # Normalize
+        dist_from_boundary = 1 - dist_from_boundary/np.max(dist_from_boundary)  # Normalize
+        rand_nums = rng_instance.uniform(low=0.0, high=1.0, size=dist_from_boundary.shape)
+        if error_function is not None:
+            errors, error_variances = error_function(candidate_xs)
+            errors = errors/sum(errors)  # Normalize
+            final_scores = weights[0] * dist_from_boundary + weights[1] * errors + \
+                            weights[2] * rand_nums
+        else:
+            error_variances = 0.1 * dist_from_boundary
+            final_scores = weights[0] * dist_from_boundary + \
+                            weights[2] * rand_nums
+        # final_scores = final_scores/sum(final_scores)  # Normalize
         return final_scores, error_variances
     
     def optimize_given_T(self, T_x, T_y,
@@ -97,7 +103,7 @@ class MainGP:
         self.X = np.vstack((self.X, T_x))
         self.Y = np.vstack((self.Y, T_y))
         self.m.set_XY(X=self.X, Y=self.Y)
-        self.m.optimize_restarts(messages=True)
+        self.m.optimize_restarts(messages=False)
         if to_plot and plot and self.logdir is not None:
             self.plot(iter=iter, plot_acq=self.do_MILE)
         if save:

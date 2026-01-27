@@ -53,8 +53,8 @@ class PickToLearn():
                 self.plot_error_gp(error_gp, self.candidates, self.oned_x, self.oned_y, 
                                     ERROR_GP_LOGDIR + f'/gp_init_colorbar{seed}.png')
                 self.error_gp_list.append(error_gp)
-                self.T_x.append([])
-                self.T_y.append([])
+                self.T_x.append(np.array([[]]))
+                self.T_y.append(np.array([[]]))
         else:
             model = self.fit_initial_model(RNG, RANDOM_SEED, self.candidates)
             self.model_list = [model]
@@ -64,8 +64,8 @@ class PickToLearn():
             self.plot_error_gp(error_gp, self.candidates, self.oned_x, self.oned_y, 
                                     ERROR_GP_LOGDIR + f'/gp_init_colorbar.png')
             self.error_gp_list = [error_gp]
-            self.T_x.append([])
-            self.T_y.append([])
+            self.T_x.append(np.array([[]]))
+            self.T_y.append(np.array([[]]))
         
         self.plot_multiple_models(self.model_list, self.seed_list, 
                                 self.candidates, self.oned_x, self.oned_y)
@@ -166,25 +166,32 @@ class PickToLearn():
             model_list.append(model)
         return model_list
     
-    def plot_model(self, model, candidates, oned_x, oned_y, seed=None):
+    def plot_model(self, model, candidates, oned_x, oned_y, seed=None, stage='init'):
         if seed:
-            fig_name = LOGDIR + f'/gp_init{seed}.png'
-            fig_name_colorbar = LOGDIR + f'/gp_init_colorbar{seed}.png'
-            mile_name = LOGDIR + f'/mile_init{seed}.png'
+            fig_name = LOGDIR + f'/gp_{stage}_{seed}.png'
+            fig_name_colorbar = LOGDIR + f'/gp_{stage}_colorbar{seed}.png'
+            mile_name = LOGDIR + f'/mile_{stage}_{seed}.png'
             plot_main_gp(model, GRID, candidates, oned_x, oned_y, ALL_VALUES, 
                     THETA_INDEX, BETA, fig_name, fig_name_colorbar, mile_name)
         else:
-            fig_name = LOGDIR + f'/gp_init.png'
-            fig_name_colorbar = LOGDIR + f'/gp_init_colorbar.png'
-            mile_name = LOGDIR + f'/mile_init.png'
+            fig_name = LOGDIR + f'/gp_{stage}.png'
+            fig_name_colorbar = LOGDIR + f'/gp_{stage}_colorbar.png'
+            mile_name = LOGDIR + f'/mile_{stage}.png'
             plot_main_gp(model, GRID, candidates, oned_x, oned_y, ALL_VALUES, 
                     THETA_INDEX, BETA, fig_name, fig_name_colorbar, mile_name)                                      
 
-    def plot_multiple_models(self, model_list, seed_list, candidates, oned_x, oned_y):
+    def plot_multiple_models(self, model_list, seed_list, candidates, oned_x, oned_y,
+                                    stage='init'):
         for i in range(len(model_list)):
             model = model_list[i]
             seed = seed_list[i]
-            self.plot_model(model, candidates, oned_x, oned_y, seed)
+            self.plot_model(model, candidates, oned_x, oned_y, seed, stage)
+    
+    def plot_colormap_points(self, points, colors, stage):
+        scatter = plt.scatter(points[:, 0], points[:, 1], c=colors, cmap='viridis')
+        plt.colorbar(scatter)
+        fig_name = LOGDIR + f'/score_fn_{stage}.png'
+        plt.savefig(fig_name)
 
     def fit_initial_error_gp(self, X, Y):
         mean_function = None 
@@ -203,30 +210,51 @@ class PickToLearn():
         plt.colorbar()
         plt.savefig(fig_name)
     
-    def picktolearn_one_iteration(self, model, error_gp, new_x, rng_instance, model_idx):
-        model.acq_cache.append(new_x)
-        self.T_x[model_idx].append(new_x)
-        self.T_y[model_idx].append(model.f(new_x))
-        model.optimize_given_T(np.array(self.T_x[model_idx])[0], 
-                                np.array(self.T_y[model_idx])[0])
-        remaining = np.set_diff2d(np.array(self.D_x), np.array(self.T_x[model_idx])[0])
-        print(np.array(self.D_x), np.array(self.T_x[model_idx])[0], remaining)
+    def picktolearn_one_iteration(self, model, error_gp, new_x, rng_instance, model_idx,
+                                        stage):
+        if self.T_x[model_idx].size == 0:
+            self.T_x[model_idx] = new_x
+            self.T_y[model_idx] = model.f(new_x)
+            model.acq_cache = new_x
+        else: 
+            self.T_x[model_idx] = np.append(self.T_x[model_idx], new_x, axis=0)
+            self.T_y[model_idx] = np.append(self.T_y[model_idx], model.f(new_x), axis=0)
+            model.acq_cache = np.append(model.acq_cache, new_x, axis=0)
+        model.optimize_given_T(np.array(self.T_x[model_idx]), 
+                                np.array(self.T_y[model_idx]))
+        # remaining = np.setdiff1d(np.array(self.D_x), np.array(self.T_x[model_idx])[0])
+        remaining = np.array([elem for elem in np.array(self.D_x) if \
+                    elem not in self.T_x[model_idx]])
+        
         # Now re-fit the error GP
-        error_gp_new_ys = model.get_error_of_model_for_points(self.error_gp_candidates, \
-                                                    self.error_gp_true_costs, BETA)
-        error_gp.fit(self.error_gp_candidates, error_gp_new_ys)
-        error_function = error_gp.forward()
+        # error_gp_new_ys = model.get_error_of_model_for_points(self.error_gp_candidates, \
+        #                                            self.error_gp_true_costs, BETA)
+        # print(error_gp_new_ys)
+        # scatter = plt.scatter(self.error_gp_candidates[:, 0], 
+        #                     self.error_gp_candidates[:, 1], c=error_gp_new_ys, 
+        #                     cmap='viridis')
+        # plt.colorbar(scatter)
+        # plt.show()
+        # error_gp.fit(self.error_gp_candidates, error_gp_new_ys)
+        # error_function = error_gp.forward()
+        
         # Get a_{h,eta}(z) and u_{h,eta}(z)
+        error_function = None
         final_scores, error_variances = model.score_function(self.acq_calib_candidates, 
                                         rng_instance, error_function, BETA)
         # Run conformal prediction to get ehat
         e = model.get_error_of_model_for_points(self.acq_calib_candidates, 
                                             self.acq_calib_true_costs, BETA)
+        print(e)
         llambda = get_quantile_for_interval_score_fn(final_scores, error_variances, 
                                                         e, ALPHA)
         final_scores, error_variances = model.score_function(remaining, 
                                         rng_instance, error_function, BETA)
         ehat = final_scores + llambda * error_variances
+        print("\n\n\n\n\n\n", final_scores, llambda, error_variances, "\n\n\n\n\n\n\n")
+        
+        self.plot_colormap_points(remaining, ehat, stage)
+
         # Find the new z
         argmax_index = np.argmax(ehat)
         new_x = np.expand_dims(remaining[argmax_index], axis=0)
@@ -251,11 +279,16 @@ class PickToLearn():
         new_x = np.expand_dims(self.D_x[argmax_index], axis=0)
         ehat_value = ehat[argmax_index]
 
+        it = 0
         while ehat_value >= EHAT_THRESHOLD and \
                 len(self.T_x[model_idx]) < MAX_NUM_ACQUIRED_POINTS:
             new_x, ehat_value = \
                 self.picktolearn_one_iteration(model, error_gp, new_x, 
-                                                rng_instance, model_idx)
+                                                rng_instance, model_idx,
+                                                stage=it)
+            it += 1
+            self.plot_model(model, self.candidates, self.oned_x, self.oned_y, 
+                            seed=self.seed_list[model_idx], stage=it)
 
     def run_validation(self):
         results_dict = {}

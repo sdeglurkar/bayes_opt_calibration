@@ -59,8 +59,8 @@ def plot_main_gp(model, grid, candidates, oned_x, oned_y, value_fn, theta_index,
                 levels=[0.0],
                 colors="blue",
                 linewidths=2)
-    if len(model.acq_cache) > 0:
-        acq_points = np.array(model.acq_cache).squeeze()
+    if model.acq_cache.size > 0:
+        acq_points = np.array(model.acq_cache)
         plt.scatter(acq_points[:, 0], acq_points[:, 1], color='g')
     plt.savefig(fig_name)
     plt.figure()
