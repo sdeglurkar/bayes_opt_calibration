@@ -74,17 +74,26 @@ class MainGP:
         return e
 
     def score_function(self, candidate_xs, rng_instance, error_function, 
-                            beta, weights=[1.0, 0.0, 0.001]):
+                            beta, t, decay_factor=0.9, weights=[1.0, 0.0, 0.001],
+                            tol=1e-5):
         '''
         NOTE: error_function != ehat
         ehat = final_scores + beta * error_variances
         This function returns a_{h,eta}(z) and u_{h,eta}(z) for a desired set of z's.
         '''
+        # dist_from_boundary = []
+        # for candidate_x in candidate_xs:
+        #     if candidate_x[0] <= -5 and candidate_x[0] >= -10 and candidate_x[1] >= -10 and candidate_x[1] <= 10:
+        #         dist_from_boundary.append([1.0])
+        #     else:
+        #         dist_from_boundary.append([0.1])
+        # dist_from_boundary = np.array(dist_from_boundary)
         mu, var = self.m.predict(candidate_xs, full_cov=False)
         criterion = mu - beta * np.sqrt(var) # Conservative bc more likely to say state is in BRT
         dist_from_boundary = np.abs(criterion)
-        # dist_from_boundary = 1 - dist_from_boundary/sum(dist_from_boundary)  # Normalize
         dist_from_boundary = 1 - dist_from_boundary/np.max(dist_from_boundary)  # Normalize
+        
+        dist_from_boundary = dist_from_boundary * decay_factor**t
         rand_nums = rng_instance.uniform(low=0.0, high=1.0, size=dist_from_boundary.shape)
         if error_function is not None:
             errors, error_variances = error_function(candidate_xs)
@@ -92,10 +101,9 @@ class MainGP:
             final_scores = weights[0] * dist_from_boundary + weights[1] * errors + \
                             weights[2] * rand_nums
         else:
-            error_variances = 0.1 * dist_from_boundary
+            error_variances = 0.1 * dist_from_boundary + tol
             final_scores = weights[0] * dist_from_boundary + \
                             weights[2] * rand_nums
-        # final_scores = final_scores/sum(final_scores)  # Normalize
         return final_scores, error_variances
     
     def optimize_given_T(self, T_x, T_y,

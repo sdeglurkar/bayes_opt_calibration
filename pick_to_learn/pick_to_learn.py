@@ -185,12 +185,14 @@ class PickToLearn():
         for i in range(len(model_list)):
             model = model_list[i]
             seed = seed_list[i]
+            print("\n\n\n\n\nSEED", seed, stage)
             self.plot_model(model, candidates, oned_x, oned_y, seed, stage)
     
-    def plot_colormap_points(self, points, colors, stage):
+    def plot_colormap_points(self, points, colors, seed, name, stage):
+        plt.figure()
         scatter = plt.scatter(points[:, 0], points[:, 1], c=colors, cmap='viridis')
         plt.colorbar(scatter)
-        fig_name = LOGDIR + f'/score_fn_{stage}.png'
+        fig_name = LOGDIR + f'/{name}_{stage}_{seed}.png'
         plt.savefig(fig_name)
 
     def fit_initial_error_gp(self, X, Y):
@@ -222,7 +224,6 @@ class PickToLearn():
             model.acq_cache = np.append(model.acq_cache, new_x, axis=0)
         model.optimize_given_T(np.array(self.T_x[model_idx]), 
                                 np.array(self.T_y[model_idx]))
-        # remaining = np.setdiff1d(np.array(self.D_x), np.array(self.T_x[model_idx])[0])
         remaining = np.array([elem for elem in np.array(self.D_x) if \
                     elem not in self.T_x[model_idx]])
         
@@ -241,19 +242,21 @@ class PickToLearn():
         # Get a_{h,eta}(z) and u_{h,eta}(z)
         error_function = None
         final_scores, error_variances = model.score_function(self.acq_calib_candidates, 
-                                        rng_instance, error_function, BETA)
+                                        rng_instance, error_function, BETA, t=stage)
         # Run conformal prediction to get ehat
         e = model.get_error_of_model_for_points(self.acq_calib_candidates, 
                                             self.acq_calib_true_costs, BETA)
-        print(e)
+        self.plot_colormap_points(self.acq_calib_candidates, e, self.seed_list[model_idx],
+                                'acq_calib', stage)
         llambda = get_quantile_for_interval_score_fn(final_scores, error_variances, 
                                                         e, ALPHA)
         final_scores, error_variances = model.score_function(remaining, 
-                                        rng_instance, error_function, BETA)
+                                        rng_instance, error_function, BETA, t=stage)
         ehat = final_scores + llambda * error_variances
         print("\n\n\n\n\n\n", final_scores, llambda, error_variances, "\n\n\n\n\n\n\n")
         
-        self.plot_colormap_points(remaining, ehat, stage)
+        self.plot_colormap_points(remaining, ehat, self.seed_list[model_idx],
+                                    'score_fn', stage)
 
         # Find the new z
         argmax_index = np.argmax(ehat)
@@ -262,18 +265,24 @@ class PickToLearn():
         return new_x, ehat_value
     
     def picktolearn_alg(self, model, error_gp, rng_instance, model_idx):
-        error_function = error_gp.forward()
+        # error_function = error_gp.forward()
+        error_function = None
         # Get a_{h,eta}(z) and u_{h,eta}(z)
         final_scores, error_variances = model.score_function(self.acq_calib_candidates, 
-                                        rng_instance, error_function, BETA)
+                                        rng_instance, error_function, BETA, t=0)
         # Run conformal prediction to get ehat
         e = model.get_error_of_model_for_points(self.acq_calib_candidates, 
                                             self.acq_calib_true_costs, BETA)
+        self.plot_colormap_points(self.acq_calib_candidates, e, self.seed_list[model_idx],
+                                    'acq_calib', 'init')
         llambda = get_quantile_for_interval_score_fn(final_scores, error_variances, 
                                                         e, ALPHA)
         final_scores, error_variances = model.score_function(self.D_x, 
-                                        rng_instance, error_function, BETA)
+                                        rng_instance, error_function, BETA, t=0)
         ehat = final_scores + llambda * error_variances
+        self.plot_colormap_points(self.D_x, ehat, self.seed_list[model_idx],
+                                'score_fn', 'init')
+
         # Find the new z
         argmax_index = np.argmax(ehat)
         new_x = np.expand_dims(self.D_x[argmax_index], axis=0)

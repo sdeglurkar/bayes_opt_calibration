@@ -25,8 +25,8 @@ NUM_MODEL_INIT_ITERS = 40 #10   # Amount of initial random samples
 ########################### RANDOM SEED SETTINGS ###########################
 RANDOM_SEED = 0 #100  # If only a single seed is being run
 RNG = np.random.default_rng(RANDOM_SEED)
-MULTIPLE_SEEDS = False 
-MULTIPLE_SEED_LIST = [0, 1, 2, 3, 17, 22, 100]
+MULTIPLE_SEEDS = True 
+MULTIPLE_SEED_LIST = [0, 1] #[0, 1, 2, 3, 17, 22, 100]
 MULTIPLE_RNG_LIST = [np.random.default_rng(seed) for seed in MULTIPLE_SEED_LIST]
 if MULTIPLE_SEEDS: assert len(MULTIPLE_SEED_LIST) > 0
 
@@ -36,11 +36,12 @@ WORLD_DISCRETIZATION = 0.5  # Dictates the size of D if gridding the space
 DESIRED_N = 3600 #500 #1000 #3600
 
 ########################### ACQUISITION FN SETTINGS ###########################
-ALPHA = 0.05
+ALPHA = 0.01 #0.05
 NUM_CALIBRATION_POINTS = 100
 NUM_ERROR_GP_POINTS = 50
-EHAT_THRESHOLD = 0.5
+EHAT_THRESHOLD = 0.3
 MAX_NUM_ACQUIRED_POINTS = 100
+assert NUM_CALIBRATION_POINTS >= (1-ALPHA)/ALPHA  # Necessary for conformal prediction
 
 ########################### OTHER SETTINGS ###########################
 VALIDATION_DISCRETIZATION = 0.5
