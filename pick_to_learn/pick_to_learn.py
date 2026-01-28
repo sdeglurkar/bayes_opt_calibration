@@ -29,6 +29,7 @@ class PickToLearn():
         self.error_gp_list = []
         self.rng_list = MULTIPLE_RNG_LIST
         self.seed_list = MULTIPLE_SEED_LIST
+        self.llambdas = []
 
     def setup(self):
         print("Setting up Pick-to-Learn")
@@ -55,6 +56,7 @@ class PickToLearn():
                 self.error_gp_list.append(error_gp)
                 self.T_x.append(np.array([[]]))
                 self.T_y.append(np.array([[]]))
+                self.llambdas.append(np.array([]))
         else:
             model = self.fit_initial_model(RNG, RANDOM_SEED, self.candidates)
             self.model_list = [model]
@@ -66,6 +68,7 @@ class PickToLearn():
             self.error_gp_list = [error_gp]
             self.T_x.append(np.array([[]]))
             self.T_y.append(np.array([[]]))
+            self.llambdas.append(np.array([]))
         
         self.plot_multiple_models(self.model_list, self.seed_list, 
                                 self.candidates, self.oned_x, self.oned_y)
@@ -152,7 +155,7 @@ class PickToLearn():
         np.random.seed(seed_val)
         model = MainGP(F, mean_function, INPUT_DIM, candidates, RANGE_X, 
                         NOISE_VAR, COST_THRES, CONF_THRES, LENGTH_SCALE, logdir=LOGDIR)
-        model.initial_setup(NUM_MODEL_INIT_ITERS, rng_instance)
+        model.initial_setup(NUM_MODEL_INIT_ITERS, rng_instance, to_plot=False)
         print("Done!")
 
         return model
@@ -167,7 +170,7 @@ class PickToLearn():
         return model_list
     
     def plot_model(self, model, candidates, oned_x, oned_y, seed=None, stage='init'):
-        if seed:
+        if seed is not None:
             fig_name = LOGDIR + f'/gp_{stage}_{seed}.png'
             fig_name_colorbar = LOGDIR + f'/gp_{stage}_colorbar{seed}.png'
             mile_name = LOGDIR + f'/mile_{stage}_{seed}.png'
@@ -185,7 +188,6 @@ class PickToLearn():
         for i in range(len(model_list)):
             model = model_list[i]
             seed = seed_list[i]
-            print("\n\n\n\n\nSEED", seed, stage)
             self.plot_model(model, candidates, oned_x, oned_y, seed, stage)
     
     def plot_colormap_points(self, points, colors, seed, name, stage):
@@ -222,6 +224,7 @@ class PickToLearn():
             self.T_x[model_idx] = np.append(self.T_x[model_idx], new_x, axis=0)
             self.T_y[model_idx] = np.append(self.T_y[model_idx], model.f(new_x), axis=0)
             model.acq_cache = np.append(model.acq_cache, new_x, axis=0)
+        
         model.optimize_given_T(np.array(self.T_x[model_idx]), 
                                 np.array(self.T_y[model_idx]))
         remaining = np.array([elem for elem in np.array(self.D_x) if \
@@ -241,19 +244,26 @@ class PickToLearn():
         
         # Get a_{h,eta}(z) and u_{h,eta}(z)
         error_function = None
-        final_scores, error_variances = model.score_function(self.acq_calib_candidates, 
+        final_scores, error_variances, nan_mask = model.score_function(self.acq_calib_candidates, 
                                         rng_instance, error_function, BETA, t=stage)
         # Run conformal prediction to get ehat
         e = model.get_error_of_model_for_points(self.acq_calib_candidates, 
                                             self.acq_calib_true_costs, BETA)
-        self.plot_colormap_points(self.acq_calib_candidates, e, self.seed_list[model_idx],
-                                'acq_calib', stage)
+        e = e[nan_mask]
+        self.plot_colormap_points(self.acq_calib_candidates[nan_mask], e, 
+                                    self.seed_list[model_idx],
+                                    'calib_true_e', stage)
+        self.plot_colormap_points(self.acq_calib_candidates[nan_mask], final_scores, 
+                                    self.seed_list[model_idx],
+                                    'calib_score_fn', stage)
         llambda = get_quantile_for_interval_score_fn(final_scores, error_variances, 
                                                         e, ALPHA)
-        final_scores, error_variances = model.score_function(remaining, 
+        self.llambdas[model_idx] = np.append(self.llambdas[model_idx], llambda)
+        final_scores, error_variances, nan_mask = model.score_function(remaining, 
                                         rng_instance, error_function, BETA, t=stage)
         ehat = final_scores + llambda * error_variances
-        print("\n\n\n\n\n\n", final_scores, llambda, error_variances, "\n\n\n\n\n\n\n")
+        remaining = remaining[nan_mask]
+        # print("\n\n\n\n\n\n", final_scores, llambda, error_variances, "\n\n\n\n\n\n\n")
         
         self.plot_colormap_points(remaining, ehat, self.seed_list[model_idx],
                                     'score_fn', stage)
@@ -268,19 +278,25 @@ class PickToLearn():
         # error_function = error_gp.forward()
         error_function = None
         # Get a_{h,eta}(z) and u_{h,eta}(z)
-        final_scores, error_variances = model.score_function(self.acq_calib_candidates, 
+        final_scores, error_variances, nan_mask = model.score_function(self.acq_calib_candidates, 
                                         rng_instance, error_function, BETA, t=0)
         # Run conformal prediction to get ehat
         e = model.get_error_of_model_for_points(self.acq_calib_candidates, 
                                             self.acq_calib_true_costs, BETA)
-        self.plot_colormap_points(self.acq_calib_candidates, e, self.seed_list[model_idx],
-                                    'acq_calib', 'init')
+        e = e[nan_mask]
+        self.plot_colormap_points(self.acq_calib_candidates[nan_mask], e, 
+                                    self.seed_list[model_idx],
+                                    'calib_true_e', 'init')
+        self.plot_colormap_points(self.acq_calib_candidates[nan_mask], final_scores, 
+                                    self.seed_list[model_idx],
+                                    'calib_score_fn', 'init')
         llambda = get_quantile_for_interval_score_fn(final_scores, error_variances, 
                                                         e, ALPHA)
-        final_scores, error_variances = model.score_function(self.D_x, 
+        self.llambdas[model_idx] = np.append(self.llambdas[model_idx], llambda)
+        final_scores, error_variances, nan_mask = model.score_function(self.D_x, 
                                         rng_instance, error_function, BETA, t=0)
         ehat = final_scores + llambda * error_variances
-        self.plot_colormap_points(self.D_x, ehat, self.seed_list[model_idx],
+        self.plot_colormap_points(self.D_x[nan_mask], ehat, self.seed_list[model_idx],
                                 'score_fn', 'init')
 
         # Find the new z
@@ -298,6 +314,15 @@ class PickToLearn():
             it += 1
             self.plot_model(model, self.candidates, self.oned_x, self.oned_y, 
                             seed=self.seed_list[model_idx], stage=it)
+            
+            print("\n\n\n\n\n\nSTAGE", it, "\n\n\n\n\n\n\n")
+        
+        seed = self.seed_list[model_idx]
+        plt.figure()
+        plt.plot(range(len(self.llambdas[model_idx])), self.llambdas[model_idx])
+        plt.xlabel("Iterations")
+        plt.ylabel("Lambda Value")
+        plt.savefig(LOGDIR + f"/lambdas_{seed}.png")
 
     def run_validation(self):
         results_dict = {}

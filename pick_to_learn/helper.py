@@ -69,8 +69,8 @@ def plot_main_gp(model, grid, candidates, oned_x, oned_y, value_fn, theta_index,
                 criterion)
     plt.colorbar()
     plt.savefig(fig_name_colorbar)
-    plt.figure()
     if model.do_MILE:
+        plt.figure()
         x = model.candidates[:, 0].flatten()
         y = model.candidates[:, 1].flatten()
         original_cand_len = int(np.sqrt(len(x)))

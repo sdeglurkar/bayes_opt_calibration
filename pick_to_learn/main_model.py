@@ -20,7 +20,7 @@ class MainGP:
         self.logdir = logdir
         self.acq_cache = np.array([[]])
     
-    def initial_setup(self, warmstart_sample, rng_instance, to_plot=True):
+    def initial_setup(self, warmstart_sample, rng_instance, to_plot=True, save=False):
         X_init = []
         for i in range(self.input_dim):
             X_i_init = rng_instance.uniform(
@@ -51,7 +51,8 @@ class MainGP:
             self.acq = self.MILE(self.candidates, self.cost_thres, self.conf_thres)
         if to_plot and self.logdir is not None:
             self.plot(plot_acq=self.do_MILE)
-        self.save(self.logdir + f'/bols_init')
+        if save:
+            self.save(self.logdir + f'/bols_init')
 
     def get_error_of_model_for_points(self, points_x, points_y_true, beta):
         mu, var = self.m.predict(points_x, full_cov=False)
@@ -81,15 +82,20 @@ class MainGP:
         ehat = final_scores + beta * error_variances
         This function returns a_{h,eta}(z) and u_{h,eta}(z) for a desired set of z's.
         '''
+        # Bad score
         # dist_from_boundary = []
         # for candidate_x in candidate_xs:
         #     if candidate_x[0] <= -5 and candidate_x[0] >= -10 and candidate_x[1] >= -10 and candidate_x[1] <= 10:
         #         dist_from_boundary.append([1.0])
         #     else:
-        #         dist_from_boundary.append([0.1])
+        #         dist_from_boundary.append([0.0])
         # dist_from_boundary = np.array(dist_from_boundary)
+        # nan_mask = ~np.isnan(dist_from_boundary).any(axis=1)
+        
         mu, var = self.m.predict(candidate_xs, full_cov=False)
         criterion = mu - beta * np.sqrt(var) # Conservative bc more likely to say state is in BRT
+        nan_mask = ~np.isnan(criterion).any(axis=1)
+        criterion = criterion[nan_mask]  # Remove nan entries
         dist_from_boundary = np.abs(criterion)
         dist_from_boundary = 1 - dist_from_boundary/np.max(dist_from_boundary)  # Normalize
         
@@ -101,10 +107,11 @@ class MainGP:
             final_scores = weights[0] * dist_from_boundary + weights[1] * errors + \
                             weights[2] * rand_nums
         else:
-            error_variances = 0.1 * dist_from_boundary + tol
+            # error_variances = 0.1 * dist_from_boundary + tol
             final_scores = weights[0] * dist_from_boundary + \
                             weights[2] * rand_nums
-        return final_scores, error_variances
+            error_variances = 0.1 * final_scores
+        return final_scores, error_variances, nan_mask
     
     def optimize_given_T(self, T_x, T_y,
                                 to_plot=True, plot=True, save=False, iter=0):
