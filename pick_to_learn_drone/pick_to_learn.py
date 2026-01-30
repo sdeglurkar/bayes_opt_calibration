@@ -8,7 +8,6 @@ from scipy.stats import norm
 
 from conformal_prediction import get_quantile_for_interval_score_fn
 from error_estimate_model import ErrorGP
-from find_picktolearn_bound import find_epsLU
 from helper import *
 from main_model import MainGP
 from pick_to_learn_settings import *

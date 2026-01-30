@@ -19,13 +19,13 @@ BETA = norm.ppf(CONF_THRES)
 NOISE_VAR = 0.001 
 COST_THRES = 0.0 
 LENGTH_SCALE = 0.25
-NUM_MODEL_INIT_ITERS = 40 #10 #40    # Amount of initial random samples
+NUM_MODEL_INIT_ITERS = 10 #40    # Amount of initial random samples
 
 ########################### RANDOM SEED SETTINGS ###########################
 RANDOM_SEED = 0 #100  # If only a single seed is being run
 RNG = np.random.default_rng(RANDOM_SEED)
-MULTIPLE_SEEDS = False 
-MULTIPLE_SEED_LIST = [0, 1] #[0, 1, 2, 3, 17, 22, 100]
+MULTIPLE_SEEDS = True
+MULTIPLE_SEED_LIST = [0, 1, 3] #[0, 1, 2, 3, 17, 22, 100]
 MULTIPLE_RNG_LIST = [np.random.default_rng(seed) for seed in MULTIPLE_SEED_LIST]
 if MULTIPLE_SEEDS: assert len(MULTIPLE_SEED_LIST) > 0
 
@@ -36,10 +36,10 @@ DESIRED_N = 3600 #500 #1000 #3600
 
 ########################### ACQUISITION FN SETTINGS ###########################
 ALPHA = 0.01 #0.05
-NUM_CALIBRATION_POINTS = 100
+NUM_CALIBRATION_POINTS = 200 #100
 NUM_ERROR_GP_POINTS = 50
 EHAT_THRESHOLD = 0.3
-MAX_NUM_ACQUIRED_POINTS = 100
+MAX_NUM_ACQUIRED_POINTS = 50
 assert NUM_CALIBRATION_POINTS >= (1-ALPHA)/ALPHA  # Necessary for conformal prediction
 
 ########################### OTHER SETTINGS ###########################
