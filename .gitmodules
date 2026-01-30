@@ -1,0 +1,3 @@
+[submodule "Lipschitz_Continuous_Reachability_Learning"]
+	path = Lipschitz_Continuous_Reachability_Learning
+	url = https://github.com/jamesjingqili/Lipschitz_Continuous_Reachability_Learning
