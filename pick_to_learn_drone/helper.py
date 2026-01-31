@@ -1,35 +1,55 @@
+import sys 
+sys.path.append(
+    '/Users/sampada/Documents/Research/Bayesian_Optimization/code/bayes_opt_calibration/')
+from Lipschitz_Continuous_Reachability_Learning import experiment_script
+from experiment_script import env_utils
+from env_utils import NoResetSyncVectorEnv, find_a_batch
+
+from main_model import MainGP
+
+import gymnasium as gym
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 
-from main_model import MainGP
 
-def batched_rollouts_generator(value_fn, grid, dynamics, time_steps, dt, goal_R, theta_value):
-    value_gradients = grid.grad_values(value_fn[-1, :, :, :])
-    def rollout(state, plot_traj=False):
-        orig_state = state
-        state_traj = [state]
-        for _ in range(time_steps):
-            index = grid.nearest_index(state)
-            grad_val = value_gradients[index[0], index[1], index[2]]
-            control = dynamics.optimal_control(None, None, grad_val)
-            state = state + dt*dynamics(state, control, disturbance=np.array([0.]), time=None)
-            state_traj.append(state)
-        state_traj = np.array(state_traj)
-
-        cost = jnp.min(jnp.linalg.norm(state_traj, axis=-1) - goal_R, axis=-1)
-        print("Ran one rollout", orig_state, cost)
-        return cost
-    
+def batched_rollouts_generator(horizon, policy, args):
     def batched_rollouts(states):
-        costs = []
-        for state in states:
-            state = np.append(state, theta_value)
-            cost = np.array(rollout(state))
-            costs.append(cost)
-        print("Done running rollouts!")
-        return np.expand_dims(np.array(costs), -1)
-    
+        """
+        Measure the reach-avoid performance of the system given the initial 
+        states. This is a vectorized version for efficiency.
+        """
+        num_samples = states.shape[0]
+        reach_avoid_measures = np.zeros(num_samples)
+
+        envs = NoResetSyncVectorEnv([lambda: gym.make(args.task) for _ in range(num_samples)])
+        n_dim = envs.envs[0].observation_space.shape[0]
+
+        for i, state in enumerate(states):
+            envs.envs[i].reset(options={'initial_state': state})
+
+        rewards = np.zeros((num_samples, horizon))
+        constraints = np.zeros((num_samples, horizon))
+        env_states = np.array([env.state for env in envs.envs])
+        state_trajs = np.zeros((num_samples, n_dim, horizon+1))
+        state_trajs[:, :, 0] = env_states
+
+        for t in range(horizon):
+            current_states = np.array([env.state for env in envs.envs])
+            acts = find_a_batch(current_states, policy)
+            actions = np.concatenate((acts[:, :3], np.zeros((num_samples, 3))), axis=1)  # assuming no noise in action for now
+            st, rew, done, _, info = envs.step(actions)
+            state_trajs[:, :, t+1] = st
+            rewards[:, t] = rew
+            constraints[:, t] = info['constraint']
+
+        min_constraints = np.minimum.accumulate(constraints, axis=1)
+        reach_avoid_measures = np.max(np.minimum(rewards, min_constraints), axis=1)
+
+        print("Rollouts", state_trajs)
+
+        return reach_avoid_measures, state_trajs
+
     return batched_rollouts
 
 def plot_main_gp(model, grid, candidates, oned_x, oned_y, value_fn, theta_index, 

@@ -76,13 +76,13 @@ class PickToLearn():
 
     def get_D(self):
         print("Obtaining D")
-        if os.path.isfile(f"D_{DESIRED_N}.pkl"):
-            with open(f"D_{DESIRED_N}.pkl", "rb") as f:
+        if os.path.isfile(f"dubins_pickles/D_{DESIRED_N}.pkl"):
+            with open(f"dubins_pickles/D_{DESIRED_N}.pkl", "rb") as f:
                 D_candidates, D_true_costs = pickle.load(f)
         else:
             D_candidates, D_true_costs = \
                 get_ground_truths_for_random_points(RANGE_X, RNG, F, DESIRED_N)
-            with open(f'D_{DESIRED_N}.pkl', 'wb') as f:
+            with open(f'dubins_pickles/D_{DESIRED_N}.pkl', 'wb') as f:
                 pickle.dump([D_candidates, D_true_costs], f)
         N = len(D_candidates)
         assert N == DESIRED_N
@@ -95,13 +95,13 @@ class PickToLearn():
 
     def get_error_gp_dataset(self):
         print("Obtaining Error GP Dataset")
-        if os.path.isfile(f"error_gp_data_{NUM_ERROR_GP_POINTS}.pkl"):
-            with open(f"error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", "rb") as f:
+        if os.path.isfile(f"dubins_pickles/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl"):
+            with open(f"dubins_pickles/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", "rb") as f:
                 error_gp_candidates, error_gp_true_costs = pickle.load(f)
         else:
             error_gp_candidates, error_gp_true_costs = \
                 get_ground_truths_for_random_points(RANGE_X, RNG, F, NUM_ERROR_GP_POINTS)
-            with open(f"error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", 'wb') as f:
+            with open(f"dubins_pickles/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", 'wb') as f:
                 pickle.dump([error_gp_candidates, error_gp_true_costs], f)
         print("Done!")
 
@@ -109,13 +109,13 @@ class PickToLearn():
 
     def get_acquisition_fn_calib_dataset(self):
         print("Obtaining C")
-        if os.path.isfile(f"acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl"):
-            with open(f"acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl", "rb") as f:
+        if os.path.isfile(f"dubins_pickles/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl"):
+            with open(f"dubins_pickles/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl", "rb") as f:
                 acq_calib_candidates, acq_calib_true_costs = pickle.load(f)
         else:
             acq_calib_candidates, acq_calib_true_costs = \
                 get_ground_truths_for_random_points(RANGE_X, RNG, F, NUM_CALIBRATION_POINTS)
-            with open(f"acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl", 'wb') as f:
+            with open(f"dubins_pickles/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl", 'wb') as f:
                 pickle.dump([acq_calib_candidates, acq_calib_true_costs], f)
         print("Done!")
 
@@ -123,13 +123,13 @@ class PickToLearn():
         
     def get_validation_dataset(self):
         print("Obtaining Validation Dataset")
-        if os.path.isfile("validation_data.pkl"):
-            with open("validation_data.pkl", "rb") as f:
+        if os.path.isfile("dubins_pickles/validation_data.pkl"):
+            with open("dubins_pickles/validation_data.pkl", "rb") as f:
                 validation_candidates, validation_true_costs = pickle.load(f)
         else:
             validation_candidates, validation_true_costs = \
                 get_ground_truths_for_a_grid(F, RANGE_X, discretization=VALIDATION_DISCRETIZATION)
-            with open('validation_data.pkl', 'wb') as f:
+            with open('dubins_pickles/validation_data.pkl', 'wb') as f:
                 pickle.dump([validation_candidates, validation_true_costs], f)
         if PLOT_VALIDATION_DATA:
             plt.scatter(validation_candidates[:, 0], validation_candidates[:, 1])
