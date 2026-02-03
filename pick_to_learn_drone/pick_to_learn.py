@@ -2,8 +2,8 @@ import sys
 sys.path.append(
     '/Users/sampada/Documents/Research/Bayesian_Optimization/code/bayes_opt_calibration/')
 from Lipschitz_Continuous_Reachability_Learning import experiment_script
-from experiment_script import env_utils
-from env_utils import evaluate_V
+# from experiment_script import env_utils
+from experiment_script.env_utils import evaluate_V
 
 from conformal_prediction import get_quantile_for_interval_score_fn
 from error_estimate_model import ErrorGP
@@ -26,29 +26,36 @@ class PickToLearn():
         self.T_x = []
         self.T_y = []
         self.D_x = None 
-        self.D_y = None 
+        self.D_y = None
+        self.full_D_x = None  
         self.acq_calib_candidates = None 
-        self.acq_calib_true_costs = None 
+        self.acq_calib_true_costs = None
+        self.full_acq_calib_candidates = None  
         self.error_gp_candidates = None 
         self.error_gp_true_costs = None 
+        self.full_error_gp_candidates = None
         self.validation_candidates = None
         self.validation_true_costs = None 
+        self.full_validation_candidates = None
         self.model_list = []
         self.error_gp_list = []
         self.rng_list = MULTIPLE_RNG_LIST
         self.seed_list = MULTIPLE_SEED_LIST
         self.llambdas = []
+        self.state_expander = expand_state_based_on_model_dim(EGO_SETTING, ADVERSARY_SETTING,
+                                                        INPUT_DIM)
 
     def setup(self):
-        print("Setting up Pick-to-Learn")
-        self.D_x, self.D_y = self.get_D()
-        self.acq_calib_candidates, self.acq_calib_true_costs = \
+        print("\nSetting up Pick-to-Learn")
+        self.D_x, self.D_y, self.full_D_x = self.get_D()
+        self.acq_calib_candidates, self.acq_calib_true_costs, self.full_acq_calib_candidates = \
             self.get_acquisition_fn_calib_dataset()
-        self.error_gp_candidates, self.error_gp_true_costs = \
+        self.error_gp_candidates, self.error_gp_true_costs, self.full_error_gp_candidates = \
             self.get_error_gp_dataset()
-        self.validation_candidates, self.validation_true_costs = \
+        self.validation_candidates, self.validation_true_costs, self.full_validation_candidates = \
             self.get_validation_dataset()
-        self.candidates, self.oned_x, self.oned_y = self.get_candidates_helper() 
+        self.candidates, self.oned_x, self.oned_y, self.full_candidates = \
+            self.get_candidates_helper() 
         if MULTIPLE_SEEDS:
             self.model_list = self.fit_initial_model_multiple_seeds(self.rng_list, 
                                                                     self.seed_list, 
@@ -89,13 +96,14 @@ class PickToLearn():
         print("Obtaining D")
         if os.path.isfile(f"drone_pickles/D_{DESIRED_N}.pkl"):
             with open(f"drone_pickles/D_{DESIRED_N}.pkl", "rb") as f:
-                D_candidates, D_true_costs = pickle.load(f)
+                D_candidates, D_true_costs, full_D_candidates = pickle.load(f)
         else:
-            D_candidates, D_true_costs = \
-                get_ground_truths_for_random_points(RANGE_X, RNG, F, DESIRED_N, 
-                                                    INPUT_DIM)
+            D_candidates, D_true_costs, full_D_candidates = \
+                get_ground_truths_for_random_points(RANGE_X, EGO_SETTING, 
+                                                    ADVERSARY_SETTING, RNG, F, 
+                                                    DESIRED_N, INPUT_DIM)
             with open(f'drone_pickles/D_{DESIRED_N}.pkl', 'wb') as f:
-                pickle.dump([D_candidates, D_true_costs], f)
+                pickle.dump([D_candidates, D_true_costs, full_D_candidates], f)
         N = len(D_candidates)
         assert N == DESIRED_N
         if PLOT_D:
@@ -103,71 +111,83 @@ class PickToLearn():
             plt.show()
         print("Done!")
         
-        return D_candidates, D_true_costs
+        return D_candidates, D_true_costs, full_D_candidates
 
     def get_error_gp_dataset(self):
         print("Obtaining Error GP Dataset")
         if os.path.isfile(f"drone_pickles/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl"):
             with open(f"drone_pickles/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", "rb") as f:
-                error_gp_candidates, error_gp_true_costs = pickle.load(f)
+                error_gp_candidates, error_gp_true_costs, full_error_gp_candidates = \
+                    pickle.load(f)
         else:
-            error_gp_candidates, error_gp_true_costs = \
-                get_ground_truths_for_random_points(RANGE_X, RNG, F, 
+            error_gp_candidates, error_gp_true_costs, full_error_gp_candidates = \
+                get_ground_truths_for_random_points(RANGE_X, EGO_SETTING, 
+                                                    ADVERSARY_SETTING, RNG, F, 
                                                     NUM_ERROR_GP_POINTS, INPUT_DIM)
             with open(f"drone_pickles/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", 'wb') as f:
-                pickle.dump([error_gp_candidates, error_gp_true_costs], f)
+                pickle.dump([error_gp_candidates, error_gp_true_costs, \
+                            full_error_gp_candidates], f)
         print("Done!")
 
-        return error_gp_candidates, error_gp_true_costs
+        return error_gp_candidates, error_gp_true_costs, full_error_gp_candidates
 
     def get_acquisition_fn_calib_dataset(self):
         print("Obtaining C")
         if os.path.isfile(f"drone_pickles/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl"):
             with open(f"drone_pickles/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl", "rb") as f:
-                acq_calib_candidates, acq_calib_true_costs = pickle.load(f)
+                acq_calib_candidates, acq_calib_true_costs, full_acq_calib_candidates = \
+                    pickle.load(f)
         else:
-            acq_calib_candidates, acq_calib_true_costs = \
-                get_ground_truths_for_random_points(RANGE_X, RNG, F, NUM_CALIBRATION_POINTS,
+            acq_calib_candidates, acq_calib_true_costs, full_acq_calib_candidates = \
+                get_ground_truths_for_random_points(RANGE_X, EGO_SETTING, 
+                                                    ADVERSARY_SETTING, RNG, F, 
+                                                    NUM_CALIBRATION_POINTS,
                                                     INPUT_DIM)
             with open(f"drone_pickles/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl", 'wb') as f:
-                pickle.dump([acq_calib_candidates, acq_calib_true_costs], f)
+                pickle.dump([acq_calib_candidates, acq_calib_true_costs, \
+                            full_acq_calib_candidates], f)
         print("Done!")
 
-        return acq_calib_candidates, acq_calib_true_costs
+        return acq_calib_candidates, acq_calib_true_costs, full_acq_calib_candidates
         
     def get_validation_dataset(self):
         print("Obtaining Validation Dataset")
         if os.path.isfile("drone_pickles/validation_data.pkl"):
             with open("drone_pickles/validation_data.pkl", "rb") as f:
-                validation_candidates, validation_true_costs = pickle.load(f)
+                validation_candidates, validation_true_costs, full_validation_candidates = \
+                    pickle.load(f)
         else:
-            validation_candidates, validation_true_costs, _, _ = \
-                get_ground_truths_for_a_grid(F, RANGE_X, VALIDATION_DISCRETIZATION, INPUT_DIM)
+            validation_candidates, validation_true_costs, _, _, full_validation_candidates = \
+                get_ground_truths_for_a_grid(RANGE_X, EGO_SETTING, ADVERSARY_SETTING, 
+                                            F, VALIDATION_DISCRETIZATION, INPUT_DIM)
             with open('drone_pickles/validation_data.pkl', 'wb') as f:
-                pickle.dump([validation_candidates, validation_true_costs], f)
+                pickle.dump([validation_candidates, validation_true_costs, \
+                            full_validation_candidates], f)
         if PLOT_VALIDATION_DATA:
             plt.scatter(validation_candidates[:, 0], validation_candidates[:, 1])
             plt.show()
         print("Done!")
 
-        return validation_candidates, validation_true_costs
+        return validation_candidates, validation_true_costs, full_validation_candidates
     
     def get_candidates_helper(self, discretization=0.1):
-        candidates, _, oned_x, oned_y = get_ground_truths_for_a_grid(F, RANGE_X, 
+        candidates, _, oned_x, oned_y, full_candidates = get_ground_truths_for_a_grid(RANGE_X, 
+                                                EGO_SETTING, ADVERSARY_SETTING, F,
                                                 discretization, INPUT_DIM,
                                                 get_costs=False)
-        return candidates, oned_x, oned_y
+        return candidates, oned_x, oned_y, full_candidates
 
     def fit_initial_model(self, rng_instance, seed_val, candidates):
         print("Fitting Initial Model")
         mean_function = GPy.core.Mapping(2,1)
-        mean_function.f = lambda x: evaluate_V(x, self.policy)
+        mean_function.f = lambda x: evaluate_V(self.state_expander(x), self.policy)
         mean_function.update_gradients = lambda a,b: 0
         mean_function.gradients_X = lambda a,b: 0
         np.random.seed(seed_val)
         model = MainGP(F, mean_function, INPUT_DIM, candidates, RANGE_X, 
                         NOISE_VAR, COST_THRES, CONF_THRES, LENGTH_SCALE, logdir=LOGDIR)
-        model.initial_setup(NUM_MODEL_INIT_ITERS, rng_instance, to_plot=False)
+        model.initial_setup(NUM_MODEL_INIT_ITERS, rng_instance, self.state_expander, 
+                            to_plot=False)
         print("Done!")
 
         return model
@@ -230,11 +250,12 @@ class PickToLearn():
                                         stage):
         if self.T_x[model_idx].size == 0:
             self.T_x[model_idx] = new_x
-            self.T_y[model_idx] = model.f(new_x)
+            self.T_y[model_idx] = model.f(self.state_expander(new_x))
             model.acq_cache = new_x
         else: 
             self.T_x[model_idx] = np.append(self.T_x[model_idx], new_x, axis=0)
-            self.T_y[model_idx] = np.append(self.T_y[model_idx], model.f(new_x), axis=0)
+            self.T_y[model_idx] = np.append(self.T_y[model_idx], \
+                                            model.f(self.state_expander(new_x)), axis=0)
             model.acq_cache = np.append(model.acq_cache, new_x, axis=0)
         
         model.optimize_given_T(np.array(self.T_x[model_idx]), 

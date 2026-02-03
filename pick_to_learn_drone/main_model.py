@@ -20,7 +20,9 @@ class MainGP:
         self.logdir = logdir
         self.acq_cache = np.array([[]])
     
-    def initial_setup(self, warmstart_sample, rng_instance, to_plot=True, save=False):
+    def initial_setup(self, warmstart_sample, rng_instance, state_expander,
+                    to_plot=True, save=False):
+        assert warmstart_sample == 1
         X_init = []
         for i in range(self.input_dim):
             X_i_init = rng_instance.uniform(
@@ -30,7 +32,8 @@ class MainGP:
             )
             X_init.append(X_i_init)
         self.X = np.stack(X_init, axis=1)
-        self.Y = self.f(self.X) 
+        self.Y = self.f(state_expander(self.X)) 
+        print(self.X, self.Y)
         if self.init_fn is None:
             self.m = GPy.models.GPRegression(
                 self.X, 
@@ -59,8 +62,6 @@ class MainGP:
         criterion = mu - beta * np.sqrt(var) # Conservative bc more likely to say state is in BRT
         # 1 is error, 0 is no error
         error = ((criterion * points_y_true <= 0) & (criterion != points_y_true)).astype(float)
-        # error = np.where(criterion <= 0 and points_y_true > 0 or   
-        #                 criterion > 0 and points_y_true <= 0, 1, 0)  
         return error
 
     def ground_truth_error(self, candidate_xs, beta, rng_instance, perturb=1e-4):
@@ -123,25 +124,6 @@ class MainGP:
             self.plot(iter=iter, plot_acq=self.do_MILE)
         if save:
             self.save(self.logdir + f'/bols_{iter}')
-
-    # def optimize_once(self, ehat, candidate_xs,
-    #                         to_plot=True, plot=True, save=False, iter=0):
-    #     '''
-    #     ehat = final_scores + lambda * error_variances
-    #     Pick the point that maximizes ehat and fit the model.
-    #     '''
-    #     argmax_index = np.argmax(ehat)
-    #     x_next = candidate_xs[argmax_index]
-    #     self.acq_cache.append(x_next)
-    #     y_next = self.f(x_next) 
-    #     self.X = np.vstack((self.X, x_next))
-    #     self.Y = np.vstack((self.Y, y_next))
-    #     self.m.set_XY(X=self.X, Y=self.Y)
-    #     self.m.optimize_restarts(messages=True)
-    #     if to_plot and plot and self.logdir is not None:
-    #         self.plot(iter=iter)
-    #     if save:
-    #         self.save(self.logdir + f'/bols_{iter}')
 
     def extract_levelset(self, x_test):
         raise NotImplementedError

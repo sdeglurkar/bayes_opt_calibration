@@ -2,8 +2,8 @@ import sys
 sys.path.append(
     '/Users/sampada/Documents/Research/Bayesian_Optimization/code/bayes_opt_calibration/')
 from Lipschitz_Continuous_Reachability_Learning import experiment_script
-from experiment_script import env_utils
-from env_utils import NoResetSyncVectorEnv, find_a_batch
+# from experiment_script import env_utils
+from experiment_script.env_utils import NoResetSyncVectorEnv, find_a_batch
 
 from main_model import MainGP
 
@@ -49,9 +49,41 @@ def batched_rollouts_generator(horizon, policy, args):
 
         print("Rollouts", state_trajs)
 
-        return reach_avoid_measures
+        return np.expand_dims(reach_avoid_measures, -1)
 
     return batched_rollouts
+
+def expand_state_based_on_model_dim(ego_setting, adversary_setting,
+                                        model_dim):
+    def state_expander(state):
+        ego_vx, ego_vy, ego_z, ego_vz = ego_setting
+        ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz = adversary_setting
+
+        # Assumes state is dim (1, n)
+        expanded_state = np.copy(state)
+        expanded_state = list(expanded_state[0])
+
+        if model_dim == 2:
+            expanded_state.insert(1, ego_vx)
+            expanded_state.extend([ego_vy, ego_z, ego_vz, ad_x, ad_vx, ad_y, \
+                                    ad_vy, ad_z, ad_vz])
+        elif model_dim == 3:
+            expanded_state.insert(1, ego_vx)
+            expanded_state.insert(3, ego_vy)
+            expanded_state.extend([ego_vz, ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz])
+        elif model_dim == 4:
+            expanded_state.insert(3, ego_vy)
+            expanded_state.extend([ego_vz, ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz])
+        elif model_dim == 6:
+            expanded_state.extend([ad_vx, ad_y, ad_vy, ad_z, ad_vz])
+        elif model_dim == 12:
+            pass 
+        else:
+            raise NotImplementedError
+
+        return np.array([expanded_state])
+    
+    return state_expander
 
 def get_ground_truths_for_random_points(range_x, ego_setting, adversary_setting, 
                                         rng, f, size_set, model_dim):
@@ -75,8 +107,9 @@ def get_ground_truths_for_random_points(range_x, ego_setting, adversary_setting,
     ad_vz1 = np.full((size_set, 1), ad_vz)
 
     inds = [0, 2]
-        
-    if model_dim == 3:
+
+    if model_dim == 2: pass    
+    elif model_dim == 3:
         z01 = rng.uniform(range_x[4][0], range_x[4][1], size=(size_set, 1)) 
         inds = [0, 2, 4]   
     elif model_dim == 4:
@@ -113,7 +146,7 @@ def get_ground_truths_for_random_points(range_x, ego_setting, adversary_setting,
 
     costs_at_random_points = f(random_points)
     print("Done!")
-    return random_points[:, inds], costs_at_random_points[:, inds]
+    return random_points[:, inds], costs_at_random_points, random_points
 
 def get_ground_truths_for_a_grid(range_x, ego_setting, adversary_setting, 
                                     f, discretization, model_dim, get_costs=True):
@@ -257,11 +290,10 @@ def get_ground_truths_for_a_grid(range_x, ego_setting, adversary_setting,
                             ad_z1, ad_vz1))
     if get_costs: 
         costs = f(candidates)
-        costs = costs[:, inds]
     else:
         costs = None
     print("Done!")
-    return candidates[:, inds], costs, oned_x, oned_y
+    return candidates[:, inds], costs, oned_x, oned_y, candidates
 
 def plot_main_gp(model, grid, candidates, oned_x, oned_y, value_fn, theta_index, 
                     beta, fig_name, fig_name_colorbar, mile_name):

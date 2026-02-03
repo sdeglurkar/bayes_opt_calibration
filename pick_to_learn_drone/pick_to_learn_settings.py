@@ -2,7 +2,8 @@ import sys
 sys.path.append(
     '/Users/sampada/Documents/Research/Bayesian_Optimization/code/bayes_opt_calibration/')
 from Lipschitz_Continuous_Reachability_Learning import experiment_script
-from experiment_script import env_utils
+# from experiment_script import env_utils
+from experiment_script.env_utils import get_args, get_env_and_policy
 
 from helper import *
 
@@ -54,8 +55,8 @@ LOGDIR = 'drone_model_dir'
 ERROR_GP_LOGDIR = 'drone_errorgp_dir'
 
 ########################### GET POLICY ###########################
-ARGS = env_utils.get_args()
-ENV, POLICY = env_utils.get_env_and_policy(ARGS)
+ARGS = get_args()
+ENV, POLICY = get_env_and_policy(ARGS)
 F = batched_rollouts_generator(HORIZON, POLICY, ARGS) 
 
 
