@@ -15,7 +15,9 @@ from scipy.stats import norm
 # FINAL_TIME = -1.0
 # TRAJ_TIME_STEPS = int(np.abs(FINAL_TIME)/DT)
 # goal_R = 5
-# RANGE_X = [[-15, 15], [-15, 15]]
+RANGE_X = [[-0.9, 0.9], [0.0, 0.1], [-2.6, 0.0], [0.6, 0.8], [0.0, 0.1], [0.0, 0.1]]
+ADVERSARY_SETTING = [0.4, 0.0, -2.2, 0.3, 0.0, 0.0]
+EGO_SETTING = [0.0, 0.7, 0.0, 0.0]
 HORIZON = 30
 
 ########################### GAUSSIAN PROCESS SETTINGS ###########################
@@ -41,7 +43,7 @@ DESIRED_N = 3600 #500 #1000 #3600
 
 ########################### ACQUISITION FN SETTINGS ###########################
 ALPHA = 0.01 #0.05
-NUM_CALIBRATION_POINTS = 200 #100
+NUM_CALIBRATION_POINTS = 100 #200 #100
 NUM_ERROR_GP_POINTS = 50
 EHAT_THRESHOLD = 0.3
 MAX_NUM_ACQUIRED_POINTS = 50

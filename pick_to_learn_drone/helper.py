@@ -48,9 +48,52 @@ def batched_rollouts_generator(horizon, policy, args):
 
         print("Rollouts", state_trajs)
 
-        return reach_avoid_measures, state_trajs
+        return reach_avoid_measures
 
     return batched_rollouts
+
+def get_ground_truths_for_random_points(range_x, ego_setting, adversary_setting, 
+                                        rng, f, size_set):
+    print("\nRunning get_ground_truths_for_random_points!") 
+    # 2D only for now  
+    ego_vx, ego_vy, ego_z, ego_vz = ego_setting
+    ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz = adversary_setting
+
+    x01 = rng.uniform(range_x[0][0], range_x[0][1], size=(size_set, 1))
+    ego_vx1 = np.full((size_set, 1), ego_vx)
+    y01 = rng.uniform(range_x[2][0], range_x[2][1], size=(size_set, 1))
+    ego_vy1 = np.full((size_set, 1), ego_vy)
+    z01 = np.full((size_set, 1), ego_z)
+    ego_vz1 = np.full((size_set, 1), ego_vz)
+    
+    ad_x1 = np.full((size_set, 1), ad_x)
+    ad_vx1 = np.full((size_set, 1), ad_vx)
+    ad_y1 = np.full((size_set, 1), ad_y)
+    ad_vy1 = np.full((size_set, 1), ad_vy)
+    ad_z1 = np.full((size_set, 1), ad_z)
+    ad_vz1 = np.full((size_set, 1), ad_vz)
+
+    random_points = np.hstack((x01, ego_vx1,
+                            y01, ego_vy1,
+                            z01, ego_vz1,
+                            ad_x1, ad_vx1,
+                            ad_y1, ad_vy1,
+                            ad_z1, ad_vz1))
+
+    costs_at_random_points = f(random_points)
+    print("Done!")
+    return random_points, costs_at_random_points
+
+def get_ground_truths_for_a_grid(f, range_x, discretization):
+    print("\nRunning get_ground_truths_for_a_grid!")
+    # 2D only for now  
+    oned_x = np.arange(range_x[0][0], range_x[0][1], discretization)
+    oned_y = np.arange(range_x[2][0], range_x[2][1], discretization)
+    xv, yv = np.meshgrid(oned_x, oned_y)
+    candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1)))
+    costs = f(candidates)
+    print("Done!")
+    return candidates, costs
 
 def plot_main_gp(model, grid, candidates, oned_x, oned_y, value_fn, theta_index, 
                     beta, fig_name, fig_name_colorbar, mile_name):
@@ -100,31 +143,6 @@ def plot_main_gp(model, grid, candidates, oned_x, oned_y, value_fn, theta_index,
         plt.contourf(original_x, original_y, MainGP.normalize(z))
         plt.colorbar()
         plt.savefig(mile_name)
-
-def get_ground_truths_for_a_grid(f, range_x, discretization):
-    print("\nRunning get_ground_truths_for_a_grid!") 
-    oned_x = np.arange(range_x[0][0], range_x[0][1], discretization) 
-    oned_y = np.arange(range_x[1][0], range_x[1][1], discretization) 
-    xv, yv = np.meshgrid(oned_x, oned_y)
-    candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1)))
-    costs = f(candidates)
-    print("Done!")
-    return candidates, costs
-
-def get_ground_truths_for_random_points(range_x, rng, f, size_set):
-    print("\nRunning get_ground_truths_for_random_points!") 
-    X_init = []
-    for i in range(2):
-        X_i_init = rng.uniform(
-            range_x[i][0],
-            range_x[i][1],
-            (size_set,)
-        )
-        X_init.append(X_i_init)
-    random_points = np.stack(X_init, axis=1)
-    costs_at_random_points = f(random_points)
-    print("Done!")
-    return random_points, costs_at_random_points
 
 def validate_final_level_set(model, candidates, true_costs, beta):
     print("Running validation of final GP level set")
