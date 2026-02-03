@@ -1,3 +1,16 @@
+import sys 
+sys.path.append(
+    '/Users/sampada/Documents/Research/Bayesian_Optimization/code/bayes_opt_calibration/')
+from Lipschitz_Continuous_Reachability_Learning import experiment_script
+from experiment_script import env_utils
+from env_utils import evaluate_V
+
+from conformal_prediction import get_quantile_for_interval_score_fn
+from error_estimate_model import ErrorGP
+from helper import *
+from main_model import MainGP
+from pick_to_learn_settings import *
+
 import GPy
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
@@ -6,14 +19,10 @@ import os
 import pickle
 from scipy.stats import norm
 
-from conformal_prediction import get_quantile_for_interval_score_fn
-from error_estimate_model import ErrorGP
-from helper import *
-from main_model import MainGP
-from pick_to_learn_settings import *
 
 class PickToLearn():
     def __init__(self):
+        self.policy = POLICY
         self.T_x = []
         self.T_y = []
         self.D_x = None 
@@ -46,31 +55,33 @@ class PickToLearn():
                                                                     self.candidates)
             for i in range(len(self.model_list)):
                 model = self.model_list[i]
-                seed = self.seed_list[i]
-                error_gp_ys = model.get_error_of_model_for_points(self.error_gp_candidates, \
-                                                    self.error_gp_true_costs, BETA)
-                error_gp = self.fit_initial_error_gp(self.error_gp_candidates, error_gp_ys)
-                self.plot_error_gp(error_gp, self.candidates, self.oned_x, self.oned_y, 
-                                    ERROR_GP_LOGDIR + f'/gp_init_colorbar{seed}.png')
-                self.error_gp_list.append(error_gp)
+                # seed = self.seed_list[i]
+                # error_gp_ys = model.get_error_of_model_for_points(self.error_gp_candidates, \
+                #                                     self.error_gp_true_costs, BETA)
+                # error_gp = self.fit_initial_error_gp(self.error_gp_candidates, error_gp_ys)
+                # self.plot_error_gp(error_gp, self.candidates, self.oned_x, self.oned_y, 
+                #                     ERROR_GP_LOGDIR + f'/gp_init_colorbar{seed}.png')
+                # self.error_gp_list.append(error_gp)
+                self.error_gp_list.append(None)
                 self.T_x.append(np.array([[]]))
                 self.T_y.append(np.array([[]]))
                 self.llambdas.append(np.array([]))
         else:
             model = self.fit_initial_model(RNG, RANDOM_SEED, self.candidates)
             self.model_list = [model]
-            error_gp_ys = model.get_error_of_model_for_points(self.error_gp_candidates, \
-                                                    self.error_gp_true_costs, BETA)
-            error_gp = self.fit_initial_error_gp(self.error_gp_candidates, error_gp_ys)
-            self.plot_error_gp(error_gp, self.candidates, self.oned_x, self.oned_y, 
-                                    ERROR_GP_LOGDIR + f'/gp_init_colorbar.png')
-            self.error_gp_list = [error_gp]
+            # error_gp_ys = model.get_error_of_model_for_points(self.error_gp_candidates, \
+            #                                         self.error_gp_true_costs, BETA)
+            # error_gp = self.fit_initial_error_gp(self.error_gp_candidates, error_gp_ys)
+            # self.plot_error_gp(error_gp, self.candidates, self.oned_x, self.oned_y, 
+            #                         ERROR_GP_LOGDIR + f'/gp_init_colorbar.png')
+            # self.error_gp_list = [error_gp]
+            self.error_gp_list = [None]
             self.T_x.append(np.array([[]]))
             self.T_y.append(np.array([[]]))
             self.llambdas.append(np.array([]))
         
-        self.plot_multiple_models(self.model_list, self.seed_list, 
-                                self.candidates, self.oned_x, self.oned_y)
+        # self.plot_multiple_models(self.model_list, self.seed_list, 
+        #                         self.candidates, self.oned_x, self.oned_y)
         
         print("Done with setup!")
 
@@ -81,7 +92,8 @@ class PickToLearn():
                 D_candidates, D_true_costs = pickle.load(f)
         else:
             D_candidates, D_true_costs = \
-                get_ground_truths_for_random_points(RANGE_X, RNG, F, DESIRED_N)
+                get_ground_truths_for_random_points(RANGE_X, RNG, F, DESIRED_N, 
+                                                    INPUT_DIM)
             with open(f'drone_pickles/D_{DESIRED_N}.pkl', 'wb') as f:
                 pickle.dump([D_candidates, D_true_costs], f)
         N = len(D_candidates)
@@ -100,7 +112,8 @@ class PickToLearn():
                 error_gp_candidates, error_gp_true_costs = pickle.load(f)
         else:
             error_gp_candidates, error_gp_true_costs = \
-                get_ground_truths_for_random_points(RANGE_X, RNG, F, NUM_ERROR_GP_POINTS)
+                get_ground_truths_for_random_points(RANGE_X, RNG, F, 
+                                                    NUM_ERROR_GP_POINTS, INPUT_DIM)
             with open(f"drone_pickles/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", 'wb') as f:
                 pickle.dump([error_gp_candidates, error_gp_true_costs], f)
         print("Done!")
@@ -114,7 +127,8 @@ class PickToLearn():
                 acq_calib_candidates, acq_calib_true_costs = pickle.load(f)
         else:
             acq_calib_candidates, acq_calib_true_costs = \
-                get_ground_truths_for_random_points(RANGE_X, RNG, F, NUM_CALIBRATION_POINTS)
+                get_ground_truths_for_random_points(RANGE_X, RNG, F, NUM_CALIBRATION_POINTS,
+                                                    INPUT_DIM)
             with open(f"drone_pickles/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl", 'wb') as f:
                 pickle.dump([acq_calib_candidates, acq_calib_true_costs], f)
         print("Done!")
@@ -127,8 +141,8 @@ class PickToLearn():
             with open("drone_pickles/validation_data.pkl", "rb") as f:
                 validation_candidates, validation_true_costs = pickle.load(f)
         else:
-            validation_candidates, validation_true_costs = \
-                get_ground_truths_for_a_grid(F, RANGE_X, discretization=VALIDATION_DISCRETIZATION)
+            validation_candidates, validation_true_costs, _, _ = \
+                get_ground_truths_for_a_grid(F, RANGE_X, VALIDATION_DISCRETIZATION, INPUT_DIM)
             with open('drone_pickles/validation_data.pkl', 'wb') as f:
                 pickle.dump([validation_candidates, validation_true_costs], f)
         if PLOT_VALIDATION_DATA:
@@ -138,17 +152,16 @@ class PickToLearn():
 
         return validation_candidates, validation_true_costs
     
-    def get_candidates_helper(self):
-        oned_x = np.arange(RANGE_X[0][0], RANGE_X[0][1], 1.0)
-        oned_y = np.arange(RANGE_X[1][0], RANGE_X[1][1], 1.0)
-        xv, yv = np.meshgrid(oned_x, oned_y)
-        candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1)))
+    def get_candidates_helper(self, discretization=0.1):
+        candidates, _, oned_x, oned_y = get_ground_truths_for_a_grid(F, RANGE_X, 
+                                                discretization, INPUT_DIM,
+                                                get_costs=False)
         return candidates, oned_x, oned_y
 
     def fit_initial_model(self, rng_instance, seed_val, candidates):
         print("Fitting Initial Model")
         mean_function = GPy.core.Mapping(2,1)
-        mean_function.f = lambda x: np.expand_dims(x[:, 0]**2 + x[:, 1]**2 - goal_R, -1)
+        mean_function.f = lambda x: evaluate_V(x, self.policy)
         mean_function.update_gradients = lambda a,b: 0
         mean_function.gradients_X = lambda a,b: 0
         np.random.seed(seed_val)
@@ -249,12 +262,12 @@ class PickToLearn():
         e = model.get_error_of_model_for_points(self.acq_calib_candidates, 
                                             self.acq_calib_true_costs, BETA)
         e = e[nan_mask]
-        self.plot_colormap_points(self.acq_calib_candidates[nan_mask], e, 
-                                    self.seed_list[model_idx],
-                                    'calib_true_e', stage)
-        self.plot_colormap_points(self.acq_calib_candidates[nan_mask], final_scores, 
-                                    self.seed_list[model_idx],
-                                    'calib_score_fn', stage)
+        # self.plot_colormap_points(self.acq_calib_candidates[nan_mask], e, 
+        #                             self.seed_list[model_idx],
+        #                             'calib_true_e', stage)
+        # self.plot_colormap_points(self.acq_calib_candidates[nan_mask], final_scores, 
+        #                             self.seed_list[model_idx],
+        #                             'calib_score_fn', stage)
         llambda = get_quantile_for_interval_score_fn(final_scores, error_variances, 
                                                         e, ALPHA)
         self.llambdas[model_idx] = np.append(self.llambdas[model_idx], llambda)
@@ -264,8 +277,8 @@ class PickToLearn():
         remaining = remaining[nan_mask]
         # print("\n\n\n\n\n\n", final_scores, llambda, error_variances, "\n\n\n\n\n\n\n")
         
-        self.plot_colormap_points(remaining, ehat, self.seed_list[model_idx],
-                                    'score_fn', stage)
+        # self.plot_colormap_points(remaining, ehat, self.seed_list[model_idx],
+        #                             'score_fn', stage)
 
         # Find the new z
         argmax_index = np.argmax(ehat)
@@ -283,20 +296,20 @@ class PickToLearn():
         e = model.get_error_of_model_for_points(self.acq_calib_candidates, 
                                             self.acq_calib_true_costs, BETA)
         e = e[nan_mask]
-        self.plot_colormap_points(self.acq_calib_candidates[nan_mask], e, 
-                                    self.seed_list[model_idx],
-                                    'calib_true_e', 'init')
-        self.plot_colormap_points(self.acq_calib_candidates[nan_mask], final_scores, 
-                                    self.seed_list[model_idx],
-                                    'calib_score_fn', 'init')
+        # self.plot_colormap_points(self.acq_calib_candidates[nan_mask], e, 
+        #                             self.seed_list[model_idx],
+        #                             'calib_true_e', 'init')
+        # self.plot_colormap_points(self.acq_calib_candidates[nan_mask], final_scores, 
+        #                             self.seed_list[model_idx],
+        #                             'calib_score_fn', 'init')
         llambda = get_quantile_for_interval_score_fn(final_scores, error_variances, 
                                                         e, ALPHA)
         self.llambdas[model_idx] = np.append(self.llambdas[model_idx], llambda)
         final_scores, error_variances, nan_mask = model.score_function(self.D_x, 
                                         rng_instance, error_function, BETA, t=0)
         ehat = final_scores + llambda * error_variances
-        self.plot_colormap_points(self.D_x[nan_mask], ehat, self.seed_list[model_idx],
-                                'score_fn', 'init')
+        # self.plot_colormap_points(self.D_x[nan_mask], ehat, self.seed_list[model_idx],
+        #                         'score_fn', 'init')
 
         # Find the new z
         argmax_index = np.argmax(ehat)
@@ -311,8 +324,8 @@ class PickToLearn():
                                                 rng_instance, model_idx,
                                                 stage=it)
             it += 1
-            self.plot_model(model, self.candidates, self.oned_x, self.oned_y, 
-                            seed=self.seed_list[model_idx], stage=it)
+            # self.plot_model(model, self.candidates, self.oned_x, self.oned_y, 
+            #                 seed=self.seed_list[model_idx], stage=it)
             
             print("\n\n\n\n\n\nSTAGE", it, "\n\n\n\n\n\n\n")
         

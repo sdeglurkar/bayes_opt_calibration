@@ -19,6 +19,7 @@ def batched_rollouts_generator(horizon, policy, args):
         Measure the reach-avoid performance of the system given the initial 
         states. This is a vectorized version for efficiency.
         """
+        print("\nRunning batched_rollouts")
         num_samples = states.shape[0]
         reach_avoid_measures = np.zeros(num_samples)
 
@@ -53,19 +54,19 @@ def batched_rollouts_generator(horizon, policy, args):
     return batched_rollouts
 
 def get_ground_truths_for_random_points(range_x, ego_setting, adversary_setting, 
-                                        rng, f, size_set):
+                                        rng, f, size_set, model_dim):
     print("\nRunning get_ground_truths_for_random_points!") 
-    # 2D only for now  
     ego_vx, ego_vy, ego_z, ego_vz = ego_setting
     ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz = adversary_setting
 
+    # If model dim is 2
     x01 = rng.uniform(range_x[0][0], range_x[0][1], size=(size_set, 1))
     ego_vx1 = np.full((size_set, 1), ego_vx)
     y01 = rng.uniform(range_x[2][0], range_x[2][1], size=(size_set, 1))
     ego_vy1 = np.full((size_set, 1), ego_vy)
     z01 = np.full((size_set, 1), ego_z)
     ego_vz1 = np.full((size_set, 1), ego_vz)
-    
+
     ad_x1 = np.full((size_set, 1), ad_x)
     ad_vx1 = np.full((size_set, 1), ad_vx)
     ad_y1 = np.full((size_set, 1), ad_y)
@@ -73,6 +74,36 @@ def get_ground_truths_for_random_points(range_x, ego_setting, adversary_setting,
     ad_z1 = np.full((size_set, 1), ad_z)
     ad_vz1 = np.full((size_set, 1), ad_vz)
 
+    inds = [0, 2]
+        
+    if model_dim == 3:
+        z01 = rng.uniform(range_x[4][0], range_x[4][1], size=(size_set, 1)) 
+        inds = [0, 2, 4]   
+    elif model_dim == 4:
+        ego_vx1 = rng.uniform(range_x[1][0], range_x[1][1], size=(size_set, 1))
+        z01 = rng.uniform(range_x[4][0], range_x[4][1], size=(size_set, 1))
+        inds = [0, 1, 2, 4]
+    elif model_dim == 6:
+        ego_vx1 = rng.uniform(range_x[1][0], range_x[1][1], size=(size_set, 1))
+        ego_vy1 = rng.uniform(range_x[3][0], range_x[3][1], size=(size_set, 1))
+        z01 = rng.uniform(range_x[4][0], range_x[4][1], size=(size_set, 1))
+        ego_vz1 = rng.uniform(range_x[5][0], range_x[5][1], size=(size_set, 1))
+        inds = [0, 1, 2, 3, 4, 5]
+    elif model_dim == 12:
+        ego_vx1 = rng.uniform(range_x[1][0], range_x[1][1], size=(size_set, 1))
+        ego_vy1 = rng.uniform(range_x[3][0], range_x[3][1], size=(size_set, 1))
+        z01 = rng.uniform(range_x[4][0], range_x[4][1], size=(size_set, 1))
+        ego_vz1 = rng.uniform(range_x[5][0], range_x[5][1], size=(size_set, 1))
+        ad_x1 = rng.uniform(range_x[6][0], range_x[6][1], size=(size_set, 1))
+        ad_vx1 = rng.uniform(range_x[7][0], range_x[7][1], size=(size_set, 1))
+        ad_y1 = rng.uniform(range_x[8][0], range_x[8][1], size=(size_set, 1))
+        ad_vy1 = rng.uniform(range_x[9][0], range_x[9][1], size=(size_set, 1))
+        ad_z1 = rng.uniform(range_x[10][0], range_x[10][1], size=(size_set, 1))
+        ad_vz1 = rng.uniform(range_x[11][0], range_x[11][1], size=(size_set, 1))
+        inds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    else:
+        raise NotImplementedError
+    
     random_points = np.hstack((x01, ego_vx1,
                             y01, ego_vy1,
                             z01, ego_vz1,
@@ -82,18 +113,155 @@ def get_ground_truths_for_random_points(range_x, ego_setting, adversary_setting,
 
     costs_at_random_points = f(random_points)
     print("Done!")
-    return random_points, costs_at_random_points
+    return random_points[:, inds], costs_at_random_points[:, inds]
 
-def get_ground_truths_for_a_grid(f, range_x, discretization):
+def get_ground_truths_for_a_grid(range_x, ego_setting, adversary_setting, 
+                                    f, discretization, model_dim, get_costs=True):
     print("\nRunning get_ground_truths_for_a_grid!")
-    # 2D only for now  
-    oned_x = np.arange(range_x[0][0], range_x[0][1], discretization)
-    oned_y = np.arange(range_x[2][0], range_x[2][1], discretization)
-    xv, yv = np.meshgrid(oned_x, oned_y)
-    candidates = np.hstack((xv.reshape(-1, 1), yv.reshape(-1, 1)))
-    costs = f(candidates)
+    ego_vx, ego_vy, ego_z, ego_vz = ego_setting
+    ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz = adversary_setting
+
+    if model_dim == 2:
+        oned_x = np.arange(range_x[0][0], range_x[0][1], discretization)
+        oned_y = np.arange(range_x[2][0], range_x[2][1], discretization)
+        xv, yv = np.meshgrid(oned_x, oned_y)
+        xv = xv.reshape(-1, 1)
+        yv = yv.reshape(-1, 1)
+
+        size_set = len(xv)
+        ego_vx1 = np.full((size_set, 1), ego_vx)
+        ego_vy1 = np.full((size_set, 1), ego_vy)
+        z01 = np.full((size_set, 1), ego_z)
+        ego_vz1 = np.full((size_set, 1), ego_vz)
+        
+        ad_x1 = np.full((size_set, 1), ad_x)
+        ad_vx1 = np.full((size_set, 1), ad_vx)
+        ad_y1 = np.full((size_set, 1), ad_y)
+        ad_vy1 = np.full((size_set, 1), ad_vy)
+        ad_z1 = np.full((size_set, 1), ad_z)
+        ad_vz1 = np.full((size_set, 1), ad_vz)
+
+        inds = [0, 2]
+    elif model_dim == 3:
+        oned_x = np.arange(range_x[0][0], range_x[0][1], discretization)
+        oned_y = np.arange(range_x[2][0], range_x[2][1], discretization)
+        oned_z = np.arange(range_x[4][0], range_x[4][1], discretization)
+        xv, yv, zv = np.meshgrid(oned_x, oned_y, oned_z)
+        xv = xv.reshape(-1, 1)
+        yv = yv.reshape(-1, 1)
+        z01 = zv.reshape(-1, 1)
+
+        size_set = len(xv)
+        ego_vx1 = np.full((size_set, 1), ego_vx)
+        ego_vy1 = np.full((size_set, 1), ego_vy)
+        ego_vz1 = np.full((size_set, 1), ego_vz)
+        
+        ad_x1 = np.full((size_set, 1), ad_x)
+        ad_vx1 = np.full((size_set, 1), ad_vx)
+        ad_y1 = np.full((size_set, 1), ad_y)
+        ad_vy1 = np.full((size_set, 1), ad_vy)
+        ad_z1 = np.full((size_set, 1), ad_z)
+        ad_vz1 = np.full((size_set, 1), ad_vz) 
+
+        inds = [0, 2, 4]  
+    elif model_dim == 4:
+        oned_x = np.arange(range_x[0][0], range_x[0][1], discretization)
+        oned_y = np.arange(range_x[2][0], range_x[2][1], discretization)
+        oned_z = np.arange(range_x[4][0], range_x[4][1], discretization)
+        oned_vx = np.arange(range_x[1][0], range_x[1][1], discretization)
+        xv, yv, zv, vxv = np.meshgrid(oned_x, oned_y, oned_z, oned_vx)
+        xv = xv.reshape(-1, 1)
+        yv = yv.reshape(-1, 1)
+        z01 = zv.reshape(-1, 1)
+        ego_vx1 = vxv.reshape(-1, 1)
+
+        size_set = len(xv)
+        ego_vy1 = np.full((size_set, 1), ego_vy)
+        ego_vz1 = np.full((size_set, 1), ego_vz)
+        
+        ad_x1 = np.full((size_set, 1), ad_x)
+        ad_vx1 = np.full((size_set, 1), ad_vx)
+        ad_y1 = np.full((size_set, 1), ad_y)
+        ad_vy1 = np.full((size_set, 1), ad_vy)
+        ad_z1 = np.full((size_set, 1), ad_z)
+        ad_vz1 = np.full((size_set, 1), ad_vz)
+
+        inds = [0, 1, 2, 4]
+    elif model_dim == 6:
+        oned_x = np.arange(range_x[0][0], range_x[0][1], discretization)
+        oned_y = np.arange(range_x[2][0], range_x[2][1], discretization)
+        oned_z = np.arange(range_x[4][0], range_x[4][1], discretization)
+        oned_vx = np.arange(range_x[1][0], range_x[1][1], discretization)
+        oned_vy = np.arange(range_x[3][0], range_x[3][1], discretization)
+        oned_vz = np.arange(range_x[5][0], range_x[5][1], discretization)
+        xv, yv, zv, vxv, vyv, vzv = np.meshgrid(oned_x, oned_y, oned_z, oned_vx,
+                                                oned_vy, oned_vz)
+        xv = xv.reshape(-1, 1)
+        yv = yv.reshape(-1, 1)
+        z01 = zv.reshape(-1, 1)
+        ego_vx1 = vxv.reshape(-1, 1)
+        ego_vy1 = vyv.reshape(-1, 1)
+        ego_vz1 = vzv.reshape(-1, 1)
+
+        size_set = len(xv)
+
+        ad_x1 = np.full((size_set, 1), ad_x)
+        ad_vx1 = np.full((size_set, 1), ad_vx)
+        ad_y1 = np.full((size_set, 1), ad_y)
+        ad_vy1 = np.full((size_set, 1), ad_vy)
+        ad_z1 = np.full((size_set, 1), ad_z)
+        ad_vz1 = np.full((size_set, 1), ad_vz)
+
+        inds = [0, 1, 2, 3, 4, 5]
+    elif model_dim == 12:
+        oned_x = np.arange(range_x[0][0], range_x[0][1], discretization)
+        oned_y = np.arange(range_x[2][0], range_x[2][1], discretization)
+        oned_z = np.arange(range_x[4][0], range_x[4][1], discretization)
+        oned_vx = np.arange(range_x[1][0], range_x[1][1], discretization)
+        oned_vy = np.arange(range_x[3][0], range_x[3][1], discretization)
+        oned_vz = np.arange(range_x[5][0], range_x[5][1], discretization)
+
+        oned_adx = np.arange(range_x[6][0], range_x[6][1], discretization)
+        oned_ady = np.arange(range_x[8][0], range_x[8][1], discretization)
+        oned_adz = np.arange(range_x[10][0], range_x[10][1], discretization)
+        oned_advx = np.arange(range_x[7][0], range_x[7][1], discretization)
+        oned_advy = np.arange(range_x[9][0], range_x[9][1], discretization)
+        oned_advz = np.arange(range_x[11][0], range_x[11][1], discretization)
+        
+        xv, yv, zv, vxv, vyv, vzv, adxv, adyv, adzv, advxv, advyv, advzv = \
+            np.meshgrid(oned_x, oned_y, oned_z, oned_vx, oned_vy, oned_vz,
+                        oned_adx, oned_ady, oned_adz, oned_advx, oned_advy, oned_advz)
+        
+        xv = xv.reshape(-1, 1)
+        yv = yv.reshape(-1, 1)
+        z01 = zv.reshape(-1, 1)
+        ego_vx1 = vxv.reshape(-1, 1)
+        ego_vy1 = vyv.reshape(-1, 1)
+        ego_vz1 = vzv.reshape(-1, 1)
+        ad_x1 = adxv.reshape(-1, 1)
+        ad_y1 = adyv.reshape(-1, 1)
+        ad_z1 = adzv.reshape(-1, 1)
+        ad_vx1 = advxv.reshape(-1, 1)
+        ad_vy1 = advyv.reshape(-1, 1)
+        ad_xz1 = advzv.reshape(-1, 1)
+
+        inds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    else:
+        raise NotImplementedError
+
+    candidates = np.hstack((xv, ego_vx1,
+                            yv, ego_vy1,
+                            z01, ego_vz1,
+                            ad_x1, ad_vx1,
+                            ad_y1, ad_vy1,
+                            ad_z1, ad_vz1))
+    if get_costs: 
+        costs = f(candidates)
+        costs = costs[:, inds]
+    else:
+        costs = None
     print("Done!")
-    return candidates, costs
+    return candidates[:, inds], costs, oned_x, oned_y
 
 def plot_main_gp(model, grid, candidates, oned_x, oned_y, value_fn, theta_index, 
                     beta, fig_name, fig_name_colorbar, mile_name):

@@ -8,14 +8,10 @@ from helper import *
 
 from scipy.stats import norm
 
-########################### DYNAMICS/REACHABILITY SETTINGS ###########################
-# THETA_VALUE = 0.0
-# DUBINS_VELOCITY = 10.0
-# DT = 0.01
-# FINAL_TIME = -1.0
-# TRAJ_TIME_STEPS = int(np.abs(FINAL_TIME)/DT)
-# goal_R = 5
-RANGE_X = [[-0.9, 0.9], [0.0, 0.1], [-2.6, 0.0], [0.6, 0.8], [0.0, 0.1], [0.0, 0.1]]
+########################### DYNAMICS SETTINGS ###########################
+# Give adversary (last 6 dims) the same range as ego (first 6 dims)
+RANGE_X = [[-0.9, 0.9], [0.0, 0.1], [-2.6, 0.0], [0.6, 0.8], [0.0, 0.1], [0.0, 0.1],
+        [-0.9, 0.9], [0.0, 0.1], [-2.6, 0.0], [0.6, 0.8], [0.0, 0.1], [0.0, 0.1]]
 ADVERSARY_SETTING = [0.4, 0.0, -2.2, 0.3, 0.0, 0.0]
 EGO_SETTING = [0.0, 0.7, 0.0, 0.0]
 HORIZON = 30
@@ -27,7 +23,7 @@ BETA = norm.ppf(CONF_THRES)
 NOISE_VAR = 0.001 
 COST_THRES = 0.0 
 LENGTH_SCALE = 0.25
-# NUM_MODEL_INIT_ITERS = 10 #40    # Amount of initial random samples
+NUM_MODEL_INIT_ITERS = 1
 
 ########################### RANDOM SEED SETTINGS ###########################
 RANDOM_SEED = 0 #100  # If only a single seed is being run
@@ -50,23 +46,17 @@ MAX_NUM_ACQUIRED_POINTS = 50
 assert NUM_CALIBRATION_POINTS >= (1-ALPHA)/ALPHA  # Necessary for conformal prediction
 
 ########################### OTHER SETTINGS ###########################
-VALIDATION_DISCRETIZATION = 0.1
+VALIDATION_DISCRETIZATION = 0.05
 PLOT_DURING_ACQUISITION = False
 PLOT_D = False
 PLOT_VALIDATION_DATA = False
 LOGDIR = 'drone_model_dir'
 ERROR_GP_LOGDIR = 'drone_errorgp_dir'
 
-########################### GET OPTIMAL VALUE FUNCTION -- BRT ###########################
-# ALL_VALUES, THETA_INDEX, GRID, DYNAMICS = \
-#         solve_brt(DUBINS_VELOCITY, THETA_VALUE, goal_R, FINAL_TIME, RANGE_X)
-
-# F = batched_rollouts_generator(ALL_VALUES, GRID, DYNAMICS, TRAJ_TIME_STEPS, DT, 
-#                                 goal_R, THETA_VALUE)
-
-args = env_utils.get_args()
-env, policy = env_utils.get_env_and_policy(args)
-F = batched_rollouts_generator(HORIZON, policy, args) 
+########################### GET POLICY ###########################
+ARGS = env_utils.get_args()
+ENV, POLICY = env_utils.get_env_and_policy(ARGS)
+F = batched_rollouts_generator(HORIZON, POLICY, ARGS) 
 
 
     

@@ -19,8 +19,8 @@ for i in range(len(obj.model_list)):
     results['T'].append(len(obj.T_x[i]))
     results['epsU'].append(epsU)
 
-obj.plot_multiple_models(obj.model_list, obj.seed_list, obj.candidates, obj.oned_x, 
-                        obj.oned_y, stage='final')
+# obj.plot_multiple_models(obj.model_list, obj.seed_list, obj.candidates, obj.oned_x, 
+#                         obj.oned_y, stage='final')
 obj.run_validation()
 print(results)
 
