@@ -148,6 +148,7 @@ def get_ground_truths_for_random_points(range_x, ego_setting, adversary_setting,
                             ad_y1, ad_vy1,
                             ad_z1, ad_vz1))
 
+    # costs_at_random_points = np.expand_dims(f(random_points), -1)
     costs_at_random_points = f(random_points)
     print("Done!")
     return random_points[:, inds], costs_at_random_points, random_points
@@ -312,36 +313,36 @@ def get_ground_truths_for_a_grid(range_x, ego_setting, adversary_setting,
                             ad_y1, ad_vy1,
                             ad_z1, ad_vz1))
     if get_costs: 
+        # costs = np.expand_dims(f(candidates), -1)
         costs = f(candidates)
     else:
         costs = None
     print("Done!")
     return candidates[:, inds], costs, oned_x, oned_y, candidates, learned_V
 
-def plot_main_gp(model, grid, candidates, oned_x, oned_y, value_fn, theta_index, 
-                    beta, fig_name, fig_name_colorbar, mile_name):
+def plot_main_gp(learned_V, beta, oned_x, oned_y, learnedV_xs, learnedV_ys, 
+                model, fig_name, fig_name_colorbar):
     plt.figure()
-    # model.m.plot()
-    plt.contour(grid.coordinate_vectors[0],
-                grid.coordinate_vectors[1],
-                value_fn[-1, :, :, theta_index].T,
-                levels=[0.0],
-                colors="black",
-                linewidths=3)
-    mu, var = model.m.predict(candidates, full_cov=False)
+    plt.contour(learnedV_xs,
+            learnedV_ys,
+            learned_V,
+            levels=[0.0],
+            colors="black",
+            linewidths=3)
+    mu, var = model.m.predict(model.candidates, full_cov=False)
     criterion = mu + beta * np.sqrt(var)  
     criterion = criterion.reshape(len(oned_x), len(oned_y))
     plt.contour(oned_x,
-                oned_x,
-                criterion,
+                oned_y,
+                criterion.T,
                 levels=[0.0],
                 colors="lightblue",
                 linewidths=2)
     criterion = mu - beta * np.sqrt(var)  
     criterion = criterion.reshape(len(oned_x), len(oned_y))
     plt.contour(oned_x,
-                oned_x,
-                criterion,
+                oned_y,
+                criterion.T,
                 levels=[0.0],
                 colors="blue",
                 linewidths=2)
@@ -352,20 +353,9 @@ def plot_main_gp(model, grid, candidates, oned_x, oned_y, value_fn, theta_index,
     plt.figure()
     plt.contourf(oned_x,
                 oned_y,
-                criterion)
+                criterion.T)
     plt.colorbar()
     plt.savefig(fig_name_colorbar)
-    if model.do_MILE:
-        plt.figure()
-        x = model.candidates[:, 0].flatten()
-        y = model.candidates[:, 1].flatten()
-        original_cand_len = int(np.sqrt(len(x)))
-        original_x = x.reshape((original_cand_len, original_cand_len))[0, :]
-        original_y = y.reshape((original_cand_len, original_cand_len))[:, 0]
-        z = model.acq.reshape((original_cand_len, original_cand_len))
-        plt.contourf(original_x, original_y, MainGP.normalize(z))
-        plt.colorbar()
-        plt.savefig(mile_name)
 
 def validate_final_level_set(model, candidates, true_costs, beta):
     print("Running validation of final GP level set")

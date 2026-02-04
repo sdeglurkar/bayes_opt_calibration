@@ -24,7 +24,7 @@ BETA = norm.ppf(CONF_THRES)
 NOISE_VAR = 0.001 
 COST_THRES = 0.0 
 LENGTH_SCALE = 0.25
-NUM_MODEL_INIT_ITERS = 10
+NUM_MODEL_INIT_ITERS = 10 #40 #10
 
 ########################### RANDOM SEED SETTINGS ###########################
 RANDOM_SEED = 0 #100  # If only a single seed is being run

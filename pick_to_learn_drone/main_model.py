@@ -23,13 +23,26 @@ class MainGP:
     def initial_setup(self, warmstart_sample, rng_instance, state_expander,
                     to_plot=True, save=False):
         X_init = []
-        for i in range(self.input_dim):
-            X_i_init = rng_instance.uniform(
-                self.range_x[i][0],
-                self.range_x[i][1],
-                (warmstart_sample,)
+        # for i in range(self.input_dim):
+        #     X_i_init = rng_instance.uniform(
+        #         self.range_x[i][0],
+        #         self.range_x[i][1],
+        #         (warmstart_sample,)
+        #     )
+        #     X_init.append(X_i_init)
+        X_i_init = rng_instance.uniform(
+            self.range_x[0][0],
+            self.range_x[0][1],
+            (warmstart_sample,)
             )
-            X_init.append(X_i_init)
+        X_init.append(X_i_init)
+        X_i_init = rng_instance.uniform(
+            self.range_x[2][0],
+            self.range_x[2][1],
+            (warmstart_sample,)
+            )
+        X_init.append(X_i_init)
+
         self.X = np.stack(X_init, axis=1)
         self.Y = self.f(state_expander(self.X)) 
         if self.init_fn is None:

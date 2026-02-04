@@ -42,7 +42,8 @@ class PickToLearn():
         self.rng_list = MULTIPLE_RNG_LIST
         self.seed_list = MULTIPLE_SEED_LIST
         self.llambdas = []
-        self.state_expander = expand_state_based_on_model_dim(EGO_SETTING, ADVERSARY_SETTING,
+        self.state_expander = expand_state_based_on_model_dim(EGO_SETTING, 
+                                                        ADVERSARY_SETTING,
                                                         INPUT_DIM)
 
     def setup(self):
@@ -88,39 +89,8 @@ class PickToLearn():
             self.T_y.append(np.array([[]]))
             self.llambdas.append(np.array([]))
         
-        # self.plot_multiple_models(self.model_list, self.seed_list, 
-        #                         self.candidates, self.oned_x, self.oned_y)
-        
-        plt.figure()
-        xs = np.arange(RANGE_X[0][0], RANGE_X[0][1], VALIDATION_DISCRETIZATION)
-        ys = np.arange(RANGE_X[2][0], RANGE_X[2][1], VALIDATION_DISCRETIZATION)
-        plt.contour(xs,
-                ys,
-                self.learned_V,
-                levels=[0.0],
-                colors="black",
-                linewidths=3)
-        mu, var = model.m.predict(model.candidates, full_cov=False)
-        criterion = mu + BETA * np.sqrt(var)  
-        criterion = criterion.reshape(len(self.oned_x), len(self.oned_y))
-        plt.contour(self.oned_x,
-                    self.oned_y,
-                    criterion.T,
-                    levels=[0.0],
-                    colors="lightblue",
-                    linewidths=2)
-        criterion = mu - BETA * np.sqrt(var)  
-        criterion = criterion.reshape(len(self.oned_x), len(self.oned_y))
-        plt.contour(self.oned_x,
-                    self.oned_y,
-                    criterion.T,
-                    levels=[0.0],
-                    colors="blue",
-                    linewidths=2)
-        if model.acq_cache.size > 0:
-            acq_points = np.array(model.acq_cache)
-            plt.scatter(acq_points[:, 0], acq_points[:, 1], color='g')
-        plt.savefig(LOGDIR + "/learned_V")
+        self.plot_multiple_models(self.learned_V, self.model_list, self.seed_list,  
+                                    self.oned_x, self.oned_y)
 
         print("Done with setup!")
 
@@ -208,7 +178,8 @@ class PickToLearn():
                 learned_V
     
     def get_candidates_helper(self, discretization=0.1):
-        candidates, _, oned_x, oned_y, full_candidates, _ = get_ground_truths_for_a_grid(RANGE_X, 
+        candidates, _, oned_x, oned_y, full_candidates, _ = \
+                                                get_ground_truths_for_a_grid(RANGE_X, 
                                                 EGO_SETTING, ADVERSARY_SETTING, F,
                                                 discretization, INPUT_DIM, self.policy,
                                                 get_costs=False)
@@ -217,7 +188,9 @@ class PickToLearn():
     def fit_initial_model(self, rng_instance, seed_val, candidates):
         print("Fitting Initial Model")
         mean_function = GPy.core.Mapping(2,1)
+        # mean_function.f = lambda x : np.expand_dims(x[:, 0]**2 + (x[:, 1] - 1)**2 - 1, -1)
         mean_function.f = lambda x: evaluate_V_batch(self.state_expander(x), self.policy)
+        # mean_function.f = lambda x: 0
         mean_function.update_gradients = lambda a,b: 0
         mean_function.gradients_X = lambda a,b: 0
         np.random.seed(seed_val)
@@ -237,27 +210,27 @@ class PickToLearn():
             model = self.fit_initial_model(rng, seed_val, candidates)
             model_list.append(model)
         return model_list
-    
-    def plot_model(self, model, candidates, oned_x, oned_y, seed=None, stage='init'):
+
+    def plot_model(self, model, learned_V, oned_x, oned_y, seed=None, stage='init'):
+        learnedV_xs = np.arange(RANGE_X[0][0], RANGE_X[0][1], VALIDATION_DISCRETIZATION)
+        learnedV_ys = np.arange(RANGE_X[2][0], RANGE_X[2][1], VALIDATION_DISCRETIZATION)
         if seed is not None:
             fig_name = LOGDIR + f'/gp_{stage}_{seed}.png'
             fig_name_colorbar = LOGDIR + f'/gp_{stage}_colorbar{seed}.png'
-            mile_name = LOGDIR + f'/mile_{stage}_{seed}.png'
-            plot_main_gp(model, GRID, candidates, oned_x, oned_y, ALL_VALUES, 
-                    THETA_INDEX, BETA, fig_name, fig_name_colorbar, mile_name)
+            plot_main_gp(learned_V, BETA, oned_x, oned_y, learnedV_xs, learnedV_ys, 
+                model, fig_name, fig_name_colorbar)
         else:
             fig_name = LOGDIR + f'/gp_{stage}.png'
             fig_name_colorbar = LOGDIR + f'/gp_{stage}_colorbar.png'
-            mile_name = LOGDIR + f'/mile_{stage}.png'
-            plot_main_gp(model, GRID, candidates, oned_x, oned_y, ALL_VALUES, 
-                    THETA_INDEX, BETA, fig_name, fig_name_colorbar, mile_name)                                      
+            plot_main_gp(learned_V, BETA, oned_x, oned_y, learnedV_xs, learnedV_ys, 
+                model, fig_name, fig_name_colorbar)                                     
 
-    def plot_multiple_models(self, model_list, seed_list, candidates, oned_x, oned_y,
-                                    stage='init'):
+    def plot_multiple_models(self, learned_V, model_list, seed_list,  
+                                oned_x, oned_y, stage='init'):
         for i in range(len(model_list)):
             model = model_list[i]
             seed = seed_list[i]
-            self.plot_model(model, candidates, oned_x, oned_y, seed, stage)
+            self.plot_model(model, learned_V, oned_x, oned_y, seed, stage)
     
     def plot_colormap_points(self, points, colors, seed, name, stage):
         plt.figure()
@@ -320,12 +293,12 @@ class PickToLearn():
         e = model.get_error_of_model_for_points(self.acq_calib_candidates, 
                                             self.acq_calib_true_costs, BETA)
         e = e[nan_mask]
-        # self.plot_colormap_points(self.acq_calib_candidates[nan_mask], e, 
-        #                             self.seed_list[model_idx],
-        #                             'calib_true_e', stage)
-        # self.plot_colormap_points(self.acq_calib_candidates[nan_mask], final_scores, 
-        #                             self.seed_list[model_idx],
-        #                             'calib_score_fn', stage)
+        self.plot_colormap_points(self.acq_calib_candidates[nan_mask], e, 
+                                    self.seed_list[model_idx],
+                                    'calib_true_e', stage)
+        self.plot_colormap_points(self.acq_calib_candidates[nan_mask], final_scores, 
+                                    self.seed_list[model_idx],
+                                    'calib_score_fn', stage)
         llambda = get_quantile_for_interval_score_fn(final_scores, error_variances, 
                                                         e, ALPHA)
         self.llambdas[model_idx] = np.append(self.llambdas[model_idx], llambda)
@@ -335,8 +308,8 @@ class PickToLearn():
         remaining = remaining[nan_mask]
         # print("\n\n\n\n\n\n", final_scores, llambda, error_variances, "\n\n\n\n\n\n\n")
         
-        # self.plot_colormap_points(remaining, ehat, self.seed_list[model_idx],
-        #                             'score_fn', stage)
+        self.plot_colormap_points(remaining, ehat, self.seed_list[model_idx],
+                                    'score_fn', stage)
 
         # Find the new z
         argmax_index = np.argmax(ehat)
@@ -354,20 +327,20 @@ class PickToLearn():
         e = model.get_error_of_model_for_points(self.acq_calib_candidates, 
                                             self.acq_calib_true_costs, BETA)
         e = e[nan_mask]
-        # self.plot_colormap_points(self.acq_calib_candidates[nan_mask], e, 
-        #                             self.seed_list[model_idx],
-        #                             'calib_true_e', 'init')
-        # self.plot_colormap_points(self.acq_calib_candidates[nan_mask], final_scores, 
-        #                             self.seed_list[model_idx],
-        #                             'calib_score_fn', 'init')
+        self.plot_colormap_points(self.acq_calib_candidates[nan_mask], e, 
+                                    self.seed_list[model_idx],
+                                    'calib_true_e', 'init')
+        self.plot_colormap_points(self.acq_calib_candidates[nan_mask], final_scores, 
+                                    self.seed_list[model_idx],
+                                    'calib_score_fn', 'init')
         llambda = get_quantile_for_interval_score_fn(final_scores, error_variances, 
                                                         e, ALPHA)
         self.llambdas[model_idx] = np.append(self.llambdas[model_idx], llambda)
         final_scores, error_variances, nan_mask = model.score_function(self.D_x, 
                                         rng_instance, error_function, BETA, t=0)
         ehat = final_scores + llambda * error_variances
-        # self.plot_colormap_points(self.D_x[nan_mask], ehat, self.seed_list[model_idx],
-        #                         'score_fn', 'init')
+        self.plot_colormap_points(self.D_x[nan_mask], ehat, self.seed_list[model_idx],
+                                'score_fn', 'init')
 
         # Find the new z
         argmax_index = np.argmax(ehat)
@@ -382,8 +355,8 @@ class PickToLearn():
                                                 rng_instance, model_idx,
                                                 stage=it)
             it += 1
-            # self.plot_model(model, self.candidates, self.oned_x, self.oned_y, 
-            #                 seed=self.seed_list[model_idx], stage=it)
+            self.plot_model(model, self.learned_V, self.oned_x, self.oned_y, 
+                            seed=self.seed_list[model_idx], stage=it)
             
             print("\n\n\n\n\n\nSTAGE", it, "\n\n\n\n\n\n\n")
         
