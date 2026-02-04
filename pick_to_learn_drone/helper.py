@@ -331,18 +331,18 @@ def plot_main_gp(learned_V, beta, oned_x, oned_y, learnedV_xs, learnedV_ys,
             linewidths=3)
     mu, var = model.m.predict(model.candidates, full_cov=False)
     criterion = mu + beta * np.sqrt(var)  
-    criterion = criterion.reshape(len(oned_x), len(oned_y))
+    criterion = criterion.reshape(len(oned_y), len(oned_x))
     plt.contour(oned_x,
                 oned_y,
-                criterion.T,
+                criterion,
                 levels=[0.0],
                 colors="lightblue",
                 linewidths=2)
     criterion = mu - beta * np.sqrt(var)  
-    criterion = criterion.reshape(len(oned_x), len(oned_y))
+    criterion = criterion.reshape(len(oned_y), len(oned_x))
     plt.contour(oned_x,
                 oned_y,
-                criterion.T,
+                criterion,
                 levels=[0.0],
                 colors="blue",
                 linewidths=2)
@@ -353,7 +353,7 @@ def plot_main_gp(learned_V, beta, oned_x, oned_y, learnedV_xs, learnedV_ys,
     plt.figure()
     plt.contourf(oned_x,
                 oned_y,
-                criterion.T)
+                criterion)
     plt.colorbar()
     plt.savefig(fig_name_colorbar)
 

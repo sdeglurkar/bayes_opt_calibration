@@ -188,9 +188,7 @@ class PickToLearn():
     def fit_initial_model(self, rng_instance, seed_val, candidates):
         print("Fitting Initial Model")
         mean_function = GPy.core.Mapping(2,1)
-        # mean_function.f = lambda x : np.expand_dims(x[:, 0]**2 + (x[:, 1] - 1)**2 - 1, -1)
         mean_function.f = lambda x: evaluate_V_batch(self.state_expander(x), self.policy)
-        # mean_function.f = lambda x: 0
         mean_function.update_gradients = lambda a,b: 0
         mean_function.gradients_X = lambda a,b: 0
         np.random.seed(seed_val)
