@@ -3,7 +3,7 @@ sys.path.append(
     '/Users/sampada/Documents/Research/Bayesian_Optimization/code/bayes_opt_calibration/')
 from Lipschitz_Continuous_Reachability_Learning import experiment_script
 # from experiment_script import env_utils
-from experiment_script.env_utils import NoResetSyncVectorEnv, find_a_batch
+from experiment_script.env_utils import NoResetSyncVectorEnv, find_a_batch, evaluate_V
 
 from main_model import MainGP
 
@@ -11,6 +11,7 @@ import gymnasium as gym
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
+from tqdm import tqdm
 
 
 def batched_rollouts_generator(horizon, policy, args):
@@ -55,33 +56,36 @@ def batched_rollouts_generator(horizon, policy, args):
 
 def expand_state_based_on_model_dim(ego_setting, adversary_setting,
                                         model_dim):
-    def state_expander(state):
+    def state_expander(states):
         ego_vx, ego_vy, ego_z, ego_vz = ego_setting
         ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz = adversary_setting
 
-        # Assumes state is dim (1, n)
-        expanded_state = np.copy(state)
-        expanded_state = list(expanded_state[0])
+        # Assumes states are each dim (1, n)
+        expanded_states = []
+        for state in states:
+            expanded_state = list(state)
 
-        if model_dim == 2:
-            expanded_state.insert(1, ego_vx)
-            expanded_state.extend([ego_vy, ego_z, ego_vz, ad_x, ad_vx, ad_y, \
-                                    ad_vy, ad_z, ad_vz])
-        elif model_dim == 3:
-            expanded_state.insert(1, ego_vx)
-            expanded_state.insert(3, ego_vy)
-            expanded_state.extend([ego_vz, ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz])
-        elif model_dim == 4:
-            expanded_state.insert(3, ego_vy)
-            expanded_state.extend([ego_vz, ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz])
-        elif model_dim == 6:
-            expanded_state.extend([ad_vx, ad_y, ad_vy, ad_z, ad_vz])
-        elif model_dim == 12:
-            pass 
-        else:
-            raise NotImplementedError
+            if model_dim == 2:
+                expanded_state.insert(1, ego_vx)
+                expanded_state.extend([ego_vy, ego_z, ego_vz, ad_x, ad_vx, ad_y, \
+                                        ad_vy, ad_z, ad_vz])
+            elif model_dim == 3:
+                expanded_state.insert(1, ego_vx)
+                expanded_state.insert(3, ego_vy)
+                expanded_state.extend([ego_vz, ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz])
+            elif model_dim == 4:
+                expanded_state.insert(3, ego_vy)
+                expanded_state.extend([ego_vz, ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz])
+            elif model_dim == 6:
+                expanded_state.extend([ad_vx, ad_y, ad_vy, ad_z, ad_vz])
+            elif model_dim == 12:
+                pass 
+            else:
+                raise NotImplementedError
 
-        return np.array([expanded_state])
+            expanded_states.append(expanded_state)
+
+        return np.array(expanded_states)
     
     return state_expander
 
@@ -149,17 +153,24 @@ def get_ground_truths_for_random_points(range_x, ego_setting, adversary_setting,
     return random_points[:, inds], costs_at_random_points, random_points
 
 def get_ground_truths_for_a_grid(range_x, ego_setting, adversary_setting, 
-                                    f, discretization, model_dim, get_costs=True):
+                                    f, discretization, model_dim, policy,
+                                    get_costs=True,
+                                    get_learned_V=False):
     print("\nRunning get_ground_truths_for_a_grid!")
     ego_vx, ego_vy, ego_z, ego_vz = ego_setting
     ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz = adversary_setting
 
+    learned_V = None 
+
+    if get_learned_V: assert model_dim == 2
+
     if model_dim == 2:
         oned_x = np.arange(range_x[0][0], range_x[0][1], discretization)
         oned_y = np.arange(range_x[2][0], range_x[2][1], discretization)
-        xv, yv = np.meshgrid(oned_x, oned_y)
-        xv = xv.reshape(-1, 1)
-        yv = yv.reshape(-1, 1)
+        xv_orig, yv_orig = np.meshgrid(oned_x, oned_y)
+        learned_V = np.zeros(xv_orig.shape)
+        xv = xv_orig.reshape(-1, 1)
+        yv = yv_orig.reshape(-1, 1)
 
         size_set = len(xv)
         ego_vx1 = np.full((size_set, 1), ego_vx)
@@ -175,6 +186,18 @@ def get_ground_truths_for_a_grid(range_x, ego_setting, adversary_setting,
         ad_vz1 = np.full((size_set, 1), ad_vz)
 
         inds = [0, 2]
+
+        for ii in tqdm(range(learned_V.shape[0])):
+            for jj in range(learned_V.shape[1]):
+                tmp_point = [
+                    xv_orig[ii,jj], ego_vx,
+                    yv_orig[ii,jj], ego_vy,
+                    ego_z, ego_vz,
+                    ad_x,  ad_vx,
+                    ad_y, ad_vy,
+                    ad_z, ad_vz
+                ]
+                learned_V[ii,jj] = evaluate_V(tmp_point, policy)
     elif model_dim == 3:
         oned_x = np.arange(range_x[0][0], range_x[0][1], discretization)
         oned_y = np.arange(range_x[2][0], range_x[2][1], discretization)
@@ -293,7 +316,7 @@ def get_ground_truths_for_a_grid(range_x, ego_setting, adversary_setting,
     else:
         costs = None
     print("Done!")
-    return candidates[:, inds], costs, oned_x, oned_y, candidates
+    return candidates[:, inds], costs, oned_x, oned_y, candidates, learned_V
 
 def plot_main_gp(model, grid, candidates, oned_x, oned_y, value_fn, theta_index, 
                     beta, fig_name, fig_name_colorbar, mile_name):

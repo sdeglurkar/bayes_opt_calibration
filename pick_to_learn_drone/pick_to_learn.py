@@ -1,9 +1,9 @@
-import sys 
+import sys
 sys.path.append(
     '/Users/sampada/Documents/Research/Bayesian_Optimization/code/bayes_opt_calibration/')
 from Lipschitz_Continuous_Reachability_Learning import experiment_script
 # from experiment_script import env_utils
-from experiment_script.env_utils import evaluate_V
+from experiment_script.env_utils import evaluate_V_batch
 
 from conformal_prediction import get_quantile_for_interval_score_fn
 from error_estimate_model import ErrorGP
@@ -52,10 +52,11 @@ class PickToLearn():
             self.get_acquisition_fn_calib_dataset()
         self.error_gp_candidates, self.error_gp_true_costs, self.full_error_gp_candidates = \
             self.get_error_gp_dataset()
-        self.validation_candidates, self.validation_true_costs, self.full_validation_candidates = \
-            self.get_validation_dataset()
+        self.validation_candidates, self.validation_true_costs, self.full_validation_candidates, \
+            self.learned_V = self.get_validation_dataset()
         self.candidates, self.oned_x, self.oned_y, self.full_candidates = \
             self.get_candidates_helper() 
+
         if MULTIPLE_SEEDS:
             self.model_list = self.fit_initial_model_multiple_seeds(self.rng_list, 
                                                                     self.seed_list, 
@@ -90,6 +91,37 @@ class PickToLearn():
         # self.plot_multiple_models(self.model_list, self.seed_list, 
         #                         self.candidates, self.oned_x, self.oned_y)
         
+        plt.figure()
+        xs = np.arange(RANGE_X[0][0], RANGE_X[0][1], VALIDATION_DISCRETIZATION)
+        ys = np.arange(RANGE_X[2][0], RANGE_X[2][1], VALIDATION_DISCRETIZATION)
+        plt.contour(xs,
+                ys,
+                self.learned_V,
+                levels=[0.0],
+                colors="black",
+                linewidths=3)
+        mu, var = model.m.predict(model.candidates, full_cov=False)
+        criterion = mu + BETA * np.sqrt(var)  
+        criterion = criterion.reshape(len(self.oned_x), len(self.oned_y))
+        plt.contour(self.oned_x,
+                    self.oned_y,
+                    criterion.T,
+                    levels=[0.0],
+                    colors="lightblue",
+                    linewidths=2)
+        criterion = mu - BETA * np.sqrt(var)  
+        criterion = criterion.reshape(len(self.oned_x), len(self.oned_y))
+        plt.contour(self.oned_x,
+                    self.oned_y,
+                    criterion.T,
+                    levels=[0.0],
+                    colors="blue",
+                    linewidths=2)
+        if model.acq_cache.size > 0:
+            acq_points = np.array(model.acq_cache)
+            plt.scatter(acq_points[:, 0], acq_points[:, 1], color='g')
+        plt.savefig(LOGDIR + "/learned_V")
+
         print("Done with setup!")
 
     def get_D(self):
@@ -154,33 +186,38 @@ class PickToLearn():
         print("Obtaining Validation Dataset")
         if os.path.isfile("drone_pickles/validation_data.pkl"):
             with open("drone_pickles/validation_data.pkl", "rb") as f:
-                validation_candidates, validation_true_costs, full_validation_candidates = \
+                validation_candidates, validation_true_costs, full_validation_candidates, \
+                learned_V = \
                     pickle.load(f)
         else:
-            validation_candidates, validation_true_costs, _, _, full_validation_candidates = \
+            validation_candidates, validation_true_costs, _, _, full_validation_candidates, \
+            learned_V = \
                 get_ground_truths_for_a_grid(RANGE_X, EGO_SETTING, ADVERSARY_SETTING, 
-                                            F, VALIDATION_DISCRETIZATION, INPUT_DIM)
+                                            F, VALIDATION_DISCRETIZATION, INPUT_DIM,
+                                            self.policy,
+                                            get_learned_V=True)
             with open('drone_pickles/validation_data.pkl', 'wb') as f:
                 pickle.dump([validation_candidates, validation_true_costs, \
-                            full_validation_candidates], f)
+                            full_validation_candidates, learned_V], f)
         if PLOT_VALIDATION_DATA:
             plt.scatter(validation_candidates[:, 0], validation_candidates[:, 1])
             plt.show()
         print("Done!")
 
-        return validation_candidates, validation_true_costs, full_validation_candidates
+        return validation_candidates, validation_true_costs, full_validation_candidates, \
+                learned_V
     
     def get_candidates_helper(self, discretization=0.1):
-        candidates, _, oned_x, oned_y, full_candidates = get_ground_truths_for_a_grid(RANGE_X, 
+        candidates, _, oned_x, oned_y, full_candidates, _ = get_ground_truths_for_a_grid(RANGE_X, 
                                                 EGO_SETTING, ADVERSARY_SETTING, F,
-                                                discretization, INPUT_DIM,
+                                                discretization, INPUT_DIM, self.policy,
                                                 get_costs=False)
         return candidates, oned_x, oned_y, full_candidates
 
     def fit_initial_model(self, rng_instance, seed_val, candidates):
         print("Fitting Initial Model")
         mean_function = GPy.core.Mapping(2,1)
-        mean_function.f = lambda x: evaluate_V(self.state_expander(x), self.policy)
+        mean_function.f = lambda x: evaluate_V_batch(self.state_expander(x), self.policy)
         mean_function.update_gradients = lambda a,b: 0
         mean_function.gradients_X = lambda a,b: 0
         np.random.seed(seed_val)

@@ -22,7 +22,6 @@ class MainGP:
     
     def initial_setup(self, warmstart_sample, rng_instance, state_expander,
                     to_plot=True, save=False):
-        assert warmstart_sample == 1
         X_init = []
         for i in range(self.input_dim):
             X_i_init = rng_instance.uniform(
@@ -33,7 +32,6 @@ class MainGP:
             X_init.append(X_i_init)
         self.X = np.stack(X_init, axis=1)
         self.Y = self.f(state_expander(self.X)) 
-        print(self.X, self.Y)
         if self.init_fn is None:
             self.m = GPy.models.GPRegression(
                 self.X, 

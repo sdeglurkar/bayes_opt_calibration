@@ -8,6 +8,7 @@ from pick_to_learn_settings import *
 
 obj = PickToLearn()
 obj.setup()
+exit()
 
 results = {'T': [], 'epsU': []}
 for i in range(len(obj.model_list)):
