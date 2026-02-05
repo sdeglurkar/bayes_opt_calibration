@@ -8,7 +8,6 @@ from pick_to_learn_settings import *
 
 obj = PickToLearn()
 obj.setup()
-# exit()
 
 results = {'T': [], 'epsU': []}
 for i in range(len(obj.model_list)):
@@ -20,9 +19,11 @@ for i in range(len(obj.model_list)):
     results['T'].append(len(obj.T_x[i]))
     results['epsU'].append(epsU)
 
-# obj.plot_multiple_models(obj.model_list, obj.seed_list, obj.candidates, obj.oned_x, 
-#                         obj.oned_y, stage='final')
+obj.plot_multiple_models(obj.learned_V, obj.model_list, obj.seed_list,  
+                                    obj.oned_x, obj.oned_y, obj.albert_alphas,
+                                    stage='final')
 obj.run_validation()
 print(results)
+obj.validate_albert_method()
 
 

@@ -1,9 +1,12 @@
-import sys 
+import sys
+
+from Lipschitz_Continuous_Reachability_Learning.experiment_script.env_utils import evaluate_V_batch 
 sys.path.append(
     '/Users/sampada/Documents/Research/Bayesian_Optimization/code/bayes_opt_calibration/')
 from Lipschitz_Continuous_Reachability_Learning import experiment_script
 # from experiment_script import env_utils
-from experiment_script.env_utils import NoResetSyncVectorEnv, find_a_batch, evaluate_V
+from experiment_script.env_utils import NoResetSyncVectorEnv, find_a_batch, evaluate_V, \
+                                        evaluate_V_batch
 
 from main_model import MainGP
 
@@ -48,7 +51,7 @@ def batched_rollouts_generator(horizon, policy, args):
         min_constraints = np.minimum.accumulate(constraints, axis=1)
         reach_avoid_measures = np.max(np.minimum(rewards, min_constraints), axis=1)
 
-        print("Rollouts", state_trajs)
+        # print("Rollouts", state_trajs)
 
         return np.expand_dims(reach_avoid_measures, -1)
 
@@ -321,7 +324,7 @@ def get_ground_truths_for_a_grid(range_x, ego_setting, adversary_setting,
     return candidates[:, inds], costs, oned_x, oned_y, candidates, learned_V
 
 def plot_main_gp(learned_V, beta, oned_x, oned_y, learnedV_xs, learnedV_ys, 
-                model, fig_name, fig_name_colorbar):
+                albert_alpha, model, fig_name, fig_name_colorbar):
     plt.figure()
     plt.contour(learnedV_xs,
             learnedV_ys,
@@ -329,6 +332,12 @@ def plot_main_gp(learned_V, beta, oned_x, oned_y, learnedV_xs, learnedV_ys,
             levels=[0.0],
             colors="black",
             linewidths=3)
+    plt.contour(learnedV_xs,
+            learnedV_ys,
+            learned_V,
+            levels=[albert_alpha],
+            colors="gray",
+            linewidths=2)
     mu, var = model.m.predict(model.candidates, full_cov=False)
     criterion = mu + beta * np.sqrt(var)  
     criterion = criterion.reshape(len(oned_y), len(oned_x))
@@ -373,6 +382,32 @@ def validate_final_level_set(model, candidates, true_costs, beta):
     false_pos = np.intersect1d(gp_below_zero, true_above_zero)
     true_neg = np.intersect1d(gp_above_zero, true_above_zero)
     false_neg = np.intersect1d(gp_above_zero, true_below_zero)
+
+    tpr = len(true_pos) / (len(true_pos) + len(false_neg))
+    fpr = len(false_pos) / (len(false_pos) + len(true_neg))
+    tnr = len(true_neg) / (len(true_neg) + len(false_pos))
+    fnr = len(false_neg) / (len(false_neg) + len(true_pos))
+
+    print("Done running validation!")
+
+    return tpr, fpr, tnr, fnr
+
+def validate_albert(policy, alpha, candidates, true_costs, state_expander):
+    print("Running validation of Albert's final level set")
+    criterion = evaluate_V_batch(state_expander(candidates), policy)
+    criterion = criterion - alpha
+    
+    assert len(criterion) == len(true_costs)
+
+    pred_below_zero = np.where(criterion <= 0)
+    pred_above_zero = np.where(criterion > 0)
+    true_below_zero = np.where(true_costs <= 0)
+    true_above_zero = np.where(true_costs > 0)
+
+    true_pos = np.intersect1d(pred_below_zero, true_below_zero)
+    false_pos = np.intersect1d(pred_below_zero, true_above_zero)
+    true_neg = np.intersect1d(pred_above_zero, true_above_zero)
+    false_neg = np.intersect1d(pred_above_zero, true_below_zero)
 
     tpr = len(true_pos) / (len(true_pos) + len(false_neg))
     fpr = len(false_pos) / (len(false_pos) + len(true_neg))

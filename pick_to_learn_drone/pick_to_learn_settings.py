@@ -24,12 +24,12 @@ BETA = norm.ppf(CONF_THRES)
 NOISE_VAR = 0.001 
 COST_THRES = 0.0 
 LENGTH_SCALE = 0.25
-NUM_MODEL_INIT_ITERS = 10 #40 #10
+NUM_MODEL_INIT_ITERS = 40 #10
 
 ########################### RANDOM SEED SETTINGS ###########################
 RANDOM_SEED = 0 #100  # If only a single seed is being run
 RNG = np.random.default_rng(RANDOM_SEED)
-MULTIPLE_SEEDS = False
+MULTIPLE_SEEDS = True
 MULTIPLE_SEED_LIST = [0, 1, 3] #[0, 1, 2, 3, 17, 22, 100]
 MULTIPLE_RNG_LIST = [np.random.default_rng(seed) for seed in MULTIPLE_SEED_LIST]
 if MULTIPLE_SEEDS: assert len(MULTIPLE_SEED_LIST) > 0
@@ -53,6 +53,10 @@ PLOT_D = False
 PLOT_VALIDATION_DATA = False
 LOGDIR = 'drone_model_dir'
 ERROR_GP_LOGDIR = 'drone_errorgp_dir'
+
+ALBERT_EPS = 0.1
+ALBERT_DELT = 0.05
+ALBERT_M = 7
 
 ########################### GET POLICY ###########################
 ARGS = get_args()

@@ -4,6 +4,7 @@ sys.path.append(
 from Lipschitz_Continuous_Reachability_Learning import experiment_script
 # from experiment_script import env_utils
 from experiment_script.env_utils import evaluate_V_batch
+from experiment_script.lin_scenario_opt import solve_iterative_method, visualize_set
 
 from conformal_prediction import get_quantile_for_interval_score_fn
 from error_estimate_model import ErrorGP
@@ -62,6 +63,7 @@ class PickToLearn():
             self.model_list = self.fit_initial_model_multiple_seeds(self.rng_list, 
                                                                     self.seed_list, 
                                                                     self.candidates)
+            self.albert_alphas = []
             for i in range(len(self.model_list)):
                 model = self.model_list[i]
                 # seed = self.seed_list[i]
@@ -75,6 +77,16 @@ class PickToLearn():
                 self.T_x.append(np.array([[]]))
                 self.T_y.append(np.array([[]]))
                 self.llambdas.append(np.array([]))
+
+                rng = self.rng_list[i]
+                print("\nRunning Albert's method!")
+                alpha, total_time, _ = \
+                    solve_iterative_method(ENV, ALBERT_EPS, ALBERT_DELT, ALBERT_M, 
+                                            HORIZON, self.policy, ARGS, 
+                                            rng=rng,
+                                            alpha_init=-np.inf)
+                #print(f"Final alpha: {alpha:.4f}, Total time taken: {total_time:.2f} seconds")
+                self.albert_alphas.append(alpha)
         else:
             model = self.fit_initial_model(RNG, RANDOM_SEED, self.candidates)
             self.model_list = [model]
@@ -88,9 +100,19 @@ class PickToLearn():
             self.T_x.append(np.array([[]]))
             self.T_y.append(np.array([[]]))
             self.llambdas.append(np.array([]))
-        
+
+            print("\nRunning Albert's method!")
+            alpha, total_time, _ = \
+                solve_iterative_method(ENV, ALBERT_EPS, ALBERT_DELT, 
+                                        ALBERT_M, HORIZON, self.policy, ARGS, 
+                                        rng=RNG,
+                                        alpha_init=-np.inf)
+            # print(f"Final alpha: {alpha:.4f}, Total time taken: {total_time:.2f} seconds")
+            # visualize_set(alpha, None, self.policy)
+            self.albert_alphas = [alpha]
+
         self.plot_multiple_models(self.learned_V, self.model_list, self.seed_list,  
-                                    self.oned_x, self.oned_y)
+                                    self.oned_x, self.oned_y, self.albert_alphas)
 
         print("Done with setup!")
 
@@ -209,26 +231,28 @@ class PickToLearn():
             model_list.append(model)
         return model_list
 
-    def plot_model(self, model, learned_V, oned_x, oned_y, seed=None, stage='init'):
+    def plot_model(self, model, learned_V, oned_x, oned_y, albert_alpha,
+                    seed=None, stage='init'):
         learnedV_xs = np.arange(RANGE_X[0][0], RANGE_X[0][1], VALIDATION_DISCRETIZATION)
         learnedV_ys = np.arange(RANGE_X[2][0], RANGE_X[2][1], VALIDATION_DISCRETIZATION)
         if seed is not None:
             fig_name = LOGDIR + f'/gp_{stage}_{seed}.png'
             fig_name_colorbar = LOGDIR + f'/gp_{stage}_colorbar{seed}.png'
             plot_main_gp(learned_V, BETA, oned_x, oned_y, learnedV_xs, learnedV_ys, 
-                model, fig_name, fig_name_colorbar)
+                albert_alpha, model, fig_name, fig_name_colorbar)
         else:
             fig_name = LOGDIR + f'/gp_{stage}.png'
             fig_name_colorbar = LOGDIR + f'/gp_{stage}_colorbar.png'
             plot_main_gp(learned_V, BETA, oned_x, oned_y, learnedV_xs, learnedV_ys, 
-                model, fig_name, fig_name_colorbar)                                     
+                albert_alpha, model, fig_name, fig_name_colorbar)                                     
 
     def plot_multiple_models(self, learned_V, model_list, seed_list,  
-                                oned_x, oned_y, stage='init'):
+                                oned_x, oned_y, albert_alphas, stage='init'):
         for i in range(len(model_list)):
             model = model_list[i]
             seed = seed_list[i]
-            self.plot_model(model, learned_V, oned_x, oned_y, seed, stage)
+            self.plot_model(model, learned_V, oned_x, oned_y, albert_alphas[i], 
+                            seed, stage)
     
     def plot_colormap_points(self, points, colors, seed, name, stage):
         plt.figure()
@@ -354,6 +378,7 @@ class PickToLearn():
                                                 stage=it)
             it += 1
             self.plot_model(model, self.learned_V, self.oned_x, self.oned_y, 
+                            self.albert_alphas[model_idx], 
                             seed=self.seed_list[model_idx], stage=it)
             
             print("\n\n\n\n\n\nSTAGE", it, "\n\n\n\n\n\n\n")
@@ -394,4 +419,32 @@ class PickToLearn():
         print("Average FPR Over All Seeds: ", np.mean(all_fprs))
         print("Average TNR Over All Seeds: ", np.mean(all_tnrs))
 
-    
+    def validate_albert_method(self):
+        results_dict = {}
+        for i in range(len(self.rng_list)):
+            seed = self.seed_list[i]
+            tpr, fpr, tnr, fnr = validate_albert(self.policy, self.albert_alphas[i], 
+                                                    self.validation_candidates, 
+                                                    self.validation_true_costs,
+                                                    self.state_expander)
+            results_dict[seed] = [tpr, fpr, tnr, fnr]
+
+        keys = list(results_dict.keys())
+        all_tprs = [results_dict[key][0] for key in keys]
+        all_fnrs = [results_dict[key][3] for key in keys]
+        all_fprs = [results_dict[key][1] for key in keys]
+        all_tnrs = [results_dict[key][2] for key in keys]
+
+        for key in keys:
+            # TPR + FNR = 1
+            # FPR + TNR = 1
+            print("\nSeed: ", key)
+            print("True Positive Rate: ", results_dict[key][0])
+            print("False Negative Rate: ", results_dict[key][3])
+            print("False Positive Rate: ", results_dict[key][1])
+            print("True Negative Rate: ", results_dict[key][2])
+
+        print("\nAverage TPR Over All Seeds: ", np.mean(all_tprs))
+        print("Average FNR Over All Seeds: ", np.mean(all_fnrs))
+        print("Average FPR Over All Seeds: ", np.mean(all_fprs))
+        print("Average TNR Over All Seeds: ", np.mean(all_tnrs))
