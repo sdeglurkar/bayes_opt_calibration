@@ -21,7 +21,8 @@ class MainGP:
         self.acq_cache = np.array([[]])
     
     def initial_setup(self, warmstart_sample, rng_instance, state_expander,
-                    to_plot=True, save=False):
+                    to_plot=False, save=False):
+        # WARNING: Only works for model dim = 2!
         X_init = []
         # for i in range(self.input_dim):
         #     X_i_init = rng_instance.uniform(
@@ -68,9 +69,35 @@ class MainGP:
         if save:
             self.save(self.logdir + f'/bols_init')
 
+    def initial_setup_given_points(self, X, Y, to_plot=True, save=False):
+        self.X = X
+        self.Y = Y
+        if self.init_fn is None:
+            self.m = GPy.models.GPRegression(
+                self.X, 
+                self.Y, 
+                GPy.kern.Matern52(self.input_dim, lengthscale=self.length_scale, ARD=False),
+                noise_var = self.noise_var
+                )
+        else:
+            self.m = GPy.models.GPRegression(
+                self.X, 
+                self.Y, 
+                GPy.kern.Matern52(self.input_dim, lengthscale=self.length_scale, ARD=False),
+                noise_var = self.noise_var,
+                mean_function=self.init_fn
+                )
+        self.m.optimize_restarts(messages=True)
+        if self.do_MILE:
+            self.acq = self.MILE(self.candidates, self.cost_thres, self.conf_thres)
+        if to_plot and self.logdir is not None:
+            self.plot(plot_acq=self.do_MILE)
+        if save:
+            self.save(self.logdir + f'/bols_init')
+
     def get_error_of_model_for_points(self, points_x, points_y_true, beta):
         mu, var = self.m.predict(points_x, full_cov=False)
-        criterion = mu - beta * np.sqrt(var) # Conservative bc more likely to say state is in BRT
+        criterion = mu - beta * np.sqrt(var) # Conservative bc less likely to say state is in BRT
         # 1 is error, 0 is no error
         error = ((criterion * points_y_true <= 0) & (criterion != points_y_true)).astype(float)
         return error
@@ -105,7 +132,7 @@ class MainGP:
         # nan_mask = ~np.isnan(dist_from_boundary).any(axis=1)
         
         mu, var = self.m.predict(candidate_xs, full_cov=False)
-        criterion = mu - beta * np.sqrt(var) # Conservative bc more likely to say state is in BRT
+        criterion = mu - beta * np.sqrt(var) # Conservative bc less likely to say state is in BRT
         nan_mask = ~np.isnan(criterion).any(axis=1)
         criterion = criterion[nan_mask]  # Remove nan entries
         dist_from_boundary = np.abs(criterion)
@@ -126,7 +153,7 @@ class MainGP:
         return final_scores, error_variances, nan_mask
     
     def optimize_given_T(self, T_x, T_y,
-                                to_plot=True, plot=True, save=False, iter=0):
+                                to_plot=False, plot=True, save=False, iter=0):
         self.X = np.vstack((self.X, T_x))
         self.Y = np.vstack((self.Y, T_y))
         self.m.set_XY(X=self.X, Y=self.Y)
@@ -140,7 +167,7 @@ class MainGP:
         raise NotImplementedError
         beta = norm.ppf(self.conf_thres)
         mu, var = self.m.predict(x_test, full_cov=False)
-        criterion = mu + beta * np.sqrt(var)
+        criterion = mu - beta * np.sqrt(var)
         return x_test[(criterion < self.cost_thres).squeeze()]
 
     def plot(self, iter=0, plot_acq=True):

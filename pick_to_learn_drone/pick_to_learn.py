@@ -82,9 +82,9 @@ class PickToLearn():
                 print("\nRunning Albert's method!")
                 alpha, total_time, _ = \
                     solve_iterative_method(ENV, ALBERT_EPS, ALBERT_DELT, ALBERT_M, 
-                                            HORIZON, self.policy, ARGS, 
-                                            rng=rng,
-                                            alpha_init=-np.inf)
+                                            HORIZON, self.policy, INPUT_DIM, ARGS, 
+                                            rng, RANGE_X, EGO_SETTING, 
+                                            ADVERSARY_SETTING, alpha_init=-np.inf)
                 #print(f"Final alpha: {alpha:.4f}, Total time taken: {total_time:.2f} seconds")
                 self.albert_alphas.append(alpha)
         else:
@@ -104,11 +104,10 @@ class PickToLearn():
             print("\nRunning Albert's method!")
             alpha, total_time, _ = \
                 solve_iterative_method(ENV, ALBERT_EPS, ALBERT_DELT, 
-                                        ALBERT_M, HORIZON, self.policy, ARGS, 
-                                        rng=RNG,
+                                        ALBERT_M, HORIZON, self.policy, 
+                                        INPUT_DIM, ARGS, RNG, RANGE_X,
+                                        EGO_SETTING, ADVERSARY_SETTING,
                                         alpha_init=-np.inf)
-            # print(f"Final alpha: {alpha:.4f}, Total time taken: {total_time:.2f} seconds")
-            # visualize_set(alpha, None, self.policy)
             self.albert_alphas = [alpha]
 
         self.plot_multiple_models(self.learned_V, self.model_list, self.seed_list,  
@@ -118,15 +117,15 @@ class PickToLearn():
 
     def get_D(self):
         print("Obtaining D")
-        if os.path.isfile(f"drone_pickles/D_{DESIRED_N}.pkl"):
-            with open(f"drone_pickles/D_{DESIRED_N}.pkl", "rb") as f:
+        if os.path.isfile(f"drone_pickles_{INPUT_DIM}D/D_{DESIRED_N}.pkl"):
+            with open(f"drone_pickles_{INPUT_DIM}D/D_{DESIRED_N}.pkl", "rb") as f:
                 D_candidates, D_true_costs, full_D_candidates = pickle.load(f)
         else:
             D_candidates, D_true_costs, full_D_candidates = \
                 get_ground_truths_for_random_points(RANGE_X, EGO_SETTING, 
                                                     ADVERSARY_SETTING, RNG, F, 
                                                     DESIRED_N, INPUT_DIM)
-            with open(f'drone_pickles/D_{DESIRED_N}.pkl', 'wb') as f:
+            with open(f'drone_pickles_{INPUT_DIM}D/D_{DESIRED_N}.pkl', 'wb') as f:
                 pickle.dump([D_candidates, D_true_costs, full_D_candidates], f)
         N = len(D_candidates)
         assert N == DESIRED_N
@@ -139,8 +138,8 @@ class PickToLearn():
 
     def get_error_gp_dataset(self):
         print("Obtaining Error GP Dataset")
-        if os.path.isfile(f"drone_pickles/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl"):
-            with open(f"drone_pickles/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", "rb") as f:
+        if os.path.isfile(f"drone_pickles_{INPUT_DIM}D/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl"):
+            with open(f"drone_pickles_{INPUT_DIM}D/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", "rb") as f:
                 error_gp_candidates, error_gp_true_costs, full_error_gp_candidates = \
                     pickle.load(f)
         else:
@@ -148,17 +147,27 @@ class PickToLearn():
                 get_ground_truths_for_random_points(RANGE_X, EGO_SETTING, 
                                                     ADVERSARY_SETTING, RNG, F, 
                                                     NUM_ERROR_GP_POINTS, INPUT_DIM)
-            with open(f"drone_pickles/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", 'wb') as f:
+            with open(f"drone_pickles_{INPUT_DIM}D/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", 'wb') as f:
                 pickle.dump([error_gp_candidates, error_gp_true_costs, \
                             full_error_gp_candidates], f)
         print("Done!")
 
         return error_gp_candidates, error_gp_true_costs, full_error_gp_candidates
+    
+    def get_initial_gp_dataset(self, rng_instance):
+        print("Obtaining Initial GP Dataset")
+        initial_gp_candidates, initial_gp_true_costs, full_initial_gp_candidates = \
+            get_ground_truths_for_random_points(RANGE_X, EGO_SETTING, 
+                                                ADVERSARY_SETTING, rng_instance, F, 
+                                                NUM_MODEL_INIT_ITERS, INPUT_DIM)
+        print("Done!")
+
+        return initial_gp_candidates, initial_gp_true_costs, full_initial_gp_candidates
 
     def get_acquisition_fn_calib_dataset(self):
         print("Obtaining C")
-        if os.path.isfile(f"drone_pickles/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl"):
-            with open(f"drone_pickles/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl", "rb") as f:
+        if os.path.isfile(f"drone_pickles_{INPUT_DIM}D/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl"):
+            with open(f"drone_pickles_{INPUT_DIM}D/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl", "rb") as f:
                 acq_calib_candidates, acq_calib_true_costs, full_acq_calib_candidates = \
                     pickle.load(f)
         else:
@@ -167,7 +176,7 @@ class PickToLearn():
                                                     ADVERSARY_SETTING, RNG, F, 
                                                     NUM_CALIBRATION_POINTS,
                                                     INPUT_DIM)
-            with open(f"drone_pickles/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl", 'wb') as f:
+            with open(f"drone_pickles_{INPUT_DIM}D/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl", 'wb') as f:
                 pickle.dump([acq_calib_candidates, acq_calib_true_costs, \
                             full_acq_calib_candidates], f)
         print("Done!")
@@ -176,8 +185,8 @@ class PickToLearn():
         
     def get_validation_dataset(self):
         print("Obtaining Validation Dataset")
-        if os.path.isfile("drone_pickles/validation_data.pkl"):
-            with open("drone_pickles/validation_data.pkl", "rb") as f:
+        if os.path.isfile(f"drone_pickles_{INPUT_DIM}D/validation_data.pkl"):
+            with open(f"drone_pickles_{INPUT_DIM}D/validation_data.pkl", "rb") as f:
                 validation_candidates, validation_true_costs, full_validation_candidates, \
                 learned_V = \
                     pickle.load(f)
@@ -188,7 +197,7 @@ class PickToLearn():
                                             F, VALIDATION_DISCRETIZATION, INPUT_DIM,
                                             self.policy,
                                             get_learned_V=True)
-            with open('drone_pickles/validation_data.pkl', 'wb') as f:
+            with open(f'drone_pickles_{INPUT_DIM}D/validation_data.pkl', 'wb') as f:
                 pickle.dump([validation_candidates, validation_true_costs, \
                             full_validation_candidates, learned_V], f)
         if PLOT_VALIDATION_DATA:
@@ -199,25 +208,30 @@ class PickToLearn():
         return validation_candidates, validation_true_costs, full_validation_candidates, \
                 learned_V
     
-    def get_candidates_helper(self, discretization=0.1):
+    def get_candidates_helper(self):
         candidates, _, oned_x, oned_y, full_candidates, _ = \
                                                 get_ground_truths_for_a_grid(RANGE_X, 
                                                 EGO_SETTING, ADVERSARY_SETTING, F,
-                                                discretization, INPUT_DIM, self.policy,
+                                                MODEL_CANDIDATES_DISCRETIZATION, INPUT_DIM, self.policy,
                                                 get_costs=False)
         return candidates, oned_x, oned_y, full_candidates
 
     def fit_initial_model(self, rng_instance, seed_val, candidates):
         print("Fitting Initial Model")
-        mean_function = GPy.core.Mapping(2,1)
+        initial_gp_candidates, initial_gp_true_costs, full_initial_gp_candidates = \
+            self.get_initial_gp_dataset(rng_instance)
+
+        mean_function = GPy.core.Mapping(INPUT_DIM,1)
         mean_function.f = lambda x: evaluate_V_batch(self.state_expander(x), self.policy)
         mean_function.update_gradients = lambda a,b: 0
         mean_function.gradients_X = lambda a,b: 0
         np.random.seed(seed_val)
         model = MainGP(F, mean_function, INPUT_DIM, candidates, RANGE_X, 
                         NOISE_VAR, COST_THRES, CONF_THRES, LENGTH_SCALE, logdir=LOGDIR)
-        model.initial_setup(NUM_MODEL_INIT_ITERS, rng_instance, self.state_expander, 
-                            to_plot=False)
+        # model.initial_setup(NUM_MODEL_INIT_ITERS, rng_instance, self.state_expander, 
+        #                     to_plot=False)
+        model.initial_setup_given_points(initial_gp_candidates, 
+                                initial_gp_true_costs, to_plot=False)
         print("Done!")
 
         return model
@@ -239,12 +253,16 @@ class PickToLearn():
             fig_name = LOGDIR + f'/gp_{stage}_{seed}.png'
             fig_name_colorbar = LOGDIR + f'/gp_{stage}_colorbar{seed}.png'
             plot_main_gp(learned_V, BETA, oned_x, oned_y, learnedV_xs, learnedV_ys, 
-                albert_alpha, model, fig_name, fig_name_colorbar)
+                albert_alpha, model, INPUT_DIM, EGO_SETTING, ADVERSARY_SETTING, 
+                RANGE_X, VALIDATION_DISCRETIZATION, MODEL_CANDIDATES_DISCRETIZATION,
+                self.state_expander, fig_name, fig_name_colorbar)
         else:
             fig_name = LOGDIR + f'/gp_{stage}.png'
             fig_name_colorbar = LOGDIR + f'/gp_{stage}_colorbar.png'
             plot_main_gp(learned_V, BETA, oned_x, oned_y, learnedV_xs, learnedV_ys, 
-                albert_alpha, model, fig_name, fig_name_colorbar)                                     
+                albert_alpha, model, INPUT_DIM, EGO_SETTING, ADVERSARY_SETTING,
+                RANGE_X, VALIDATION_DISCRETIZATION, MODEL_CANDIDATES_DISCRETIZATION,
+                self.state_expander, fig_name, fig_name_colorbar)                                     
 
     def plot_multiple_models(self, learned_V, model_list, seed_list,  
                                 oned_x, oned_y, albert_alphas, stage='init'):
@@ -256,7 +274,12 @@ class PickToLearn():
     
     def plot_colormap_points(self, points, colors, seed, name, stage):
         plt.figure()
-        scatter = plt.scatter(points[:, 0], points[:, 1], c=colors, cmap='viridis')
+        if INPUT_DIM == 2 or INPUT_DIM == 3:
+            scatter = plt.scatter(points[:, 0], points[:, 1], c=colors, cmap='viridis')
+        elif INPUT_DIM == 4 or INPUT_DIM == 6 or INPUT_DIM == 12:
+            scatter = plt.scatter(points[:, 0], points[:, 2], c=colors, cmap='viridis')
+        else:
+            raise NotImplementedError
         plt.colorbar(scatter)
         fig_name = LOGDIR + f'/{name}_{stage}_{seed}.png'
         plt.savefig(fig_name)
@@ -421,7 +444,7 @@ class PickToLearn():
 
     def validate_albert_method(self):
         results_dict = {}
-        for i in range(len(self.rng_list)):
+        for i in range(len(self.model_list)):
             seed = self.seed_list[i]
             tpr, fpr, tnr, fnr = validate_albert(self.policy, self.albert_alphas[i], 
                                                     self.validation_candidates, 
