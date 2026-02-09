@@ -4,7 +4,6 @@ from Lipschitz_Continuous_Reachability_Learning.experiment_script.env_utils impo
 sys.path.append(
     '/Users/sampada/Documents/Research/Bayesian_Optimization/code/bayes_opt_calibration/')
 from Lipschitz_Continuous_Reachability_Learning import experiment_script
-# from experiment_script import env_utils
 from experiment_script.env_utils import NoResetSyncVectorEnv, find_a_batch, evaluate_V, \
                                         evaluate_V_batch
 
@@ -80,7 +79,7 @@ def expand_state_based_on_model_dim(ego_setting, adversary_setting,
                 expanded_state.insert(3, ego_vy)
                 expanded_state.extend([ego_vz, ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz])
             elif model_dim == 6:
-                expanded_state.extend([ad_vx, ad_y, ad_vy, ad_z, ad_vz])
+                expanded_state.extend([ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz])
             elif model_dim == 12:
                 pass 
             else:
@@ -403,7 +402,7 @@ def get_ground_truths_for_a_grid(range_x, ego_setting, adversary_setting,
     print("Done!")
     return candidates[:, inds], costs, oned_x, oned_y, candidates, learned_V
 
-def plot_main_gp(learned_V, beta, oned_x, oned_y, learnedV_xs, learnedV_ys, 
+def plot_main_gp(learned_V, beta, oned_x, oned_y, 
                 albert_alpha, model, dim, ego_setting, adversary_setting,
                 range_x, V_discretization, model_discretization,
                 state_expander, fig_name, fig_name_colorbar):
@@ -468,6 +467,7 @@ def plot_main_gp(learned_V, beta, oned_x, oned_y, learnedV_xs, learnedV_ys,
     else:
         raise NotImplementedError
 
+    # Find a slice of model candidates 
     candidates_for_plotting, _, _, _, full_candidates_for_plotting, _ = \
                                     get_ground_truths_for_a_grid(range_x, ego_setting, 
                                     adversary_setting, 
@@ -475,7 +475,9 @@ def plot_main_gp(learned_V, beta, oned_x, oned_y, learnedV_xs, learnedV_ys,
                                     get_costs=False,
                                     get_learned_V=False)
     mu, var = model.m.predict(full_candidates_for_plotting[:, inds], full_cov=False)
-    criterion = mu + beta * np.sqrt(var) 
+
+    learnedV_xs = np.arange(range_x[0][0], range_x[0][1], V_discretization)
+    learnedV_ys = np.arange(range_x[2][0], range_x[2][1], V_discretization)
 
     plt.figure()
     plt.contour(learnedV_xs,
@@ -490,6 +492,7 @@ def plot_main_gp(learned_V, beta, oned_x, oned_y, learnedV_xs, learnedV_ys,
             levels=[albert_alpha],
             colors="gray",
             linewidths=2) 
+    criterion = mu + beta * np.sqrt(var) 
     criterion = criterion.reshape(len(oned_y), len(oned_x))
     plt.contour(oned_x,
                 oned_y,
@@ -507,7 +510,12 @@ def plot_main_gp(learned_V, beta, oned_x, oned_y, learnedV_xs, learnedV_ys,
                 linewidths=2)
     if model.acq_cache.size > 0:
         acq_points = np.array(model.acq_cache)
-        plt.scatter(acq_points[:, 0], acq_points[:, 1], color='g')
+        if dim == 2 or dim == 3:
+            plt.scatter(acq_points[:, 0], acq_points[:, 1], color='g')
+        elif dim == 4 or dim == 6 or dim == 12:
+            plt.scatter(acq_points[:, 0], acq_points[:, 2], color='g')
+        else:
+            raise NotImplementedError
     plt.savefig(fig_name)
     plt.figure()
     plt.contourf(oned_x,

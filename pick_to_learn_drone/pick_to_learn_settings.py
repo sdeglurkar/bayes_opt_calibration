@@ -2,7 +2,6 @@ import sys
 sys.path.append(
     '/Users/sampada/Documents/Research/Bayesian_Optimization/code/bayes_opt_calibration/')
 from Lipschitz_Continuous_Reachability_Learning import experiment_script
-# from experiment_script import env_utils
 from experiment_script.env_utils import get_args, get_env_and_policy
 
 from helper import *
@@ -18,7 +17,7 @@ EGO_SETTING = [0.0, 0.7, 0.0, 0.0]
 HORIZON = 30
 
 ########################### GAUSSIAN PROCESS SETTINGS ###########################
-INPUT_DIM = 4
+INPUT_DIM = 2
 CONF_THRES = 0.9
 BETA = norm.ppf(CONF_THRES)
 NOISE_VAR = 0.001 
@@ -30,7 +29,7 @@ MODEL_CANDIDATES_DISCRETIZATION = 0.1
 ########################### RANDOM SEED SETTINGS ###########################
 RANDOM_SEED = 0 #100  # If only a single seed is being run
 RNG = np.random.default_rng(RANDOM_SEED)
-MULTIPLE_SEEDS = False
+MULTIPLE_SEEDS = True
 MULTIPLE_SEED_LIST = [0, 1, 3] #[0, 1, 2, 3, 17, 22, 100]
 MULTIPLE_RNG_LIST = [np.random.default_rng(seed) for seed in MULTIPLE_SEED_LIST]
 if MULTIPLE_SEEDS: assert len(MULTIPLE_SEED_LIST) > 0
