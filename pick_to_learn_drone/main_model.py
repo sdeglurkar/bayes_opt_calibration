@@ -157,7 +157,8 @@ class MainGP:
         self.X = np.vstack((self.X, T_x))
         self.Y = np.vstack((self.Y, T_y))
         self.m.set_XY(X=self.X, Y=self.Y)
-        self.m.optimize_restarts(messages=False)
+        # self.m.optimize_restarts(messages=False)
+        self.m.optimize(messages=False)
         if to_plot and plot and self.logdir is not None:
             self.plot(iter=iter, plot_acq=self.do_MILE)
         if save:

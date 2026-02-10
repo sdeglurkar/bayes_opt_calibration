@@ -46,6 +46,15 @@ class PickToLearn():
                                                         ADVERSARY_SETTING,
                                                         INPUT_DIM)
         self.method_times = []
+        self.run_albert = RUN_ALBERT
+        if not self.run_albert:
+            # Set albert_alphas here manually for plotting reasons
+            # 2D, ALBERT_EPS = 0.05 ALBERT_DELT = 0.1 ALBERT_M = 7
+            if INPUT_DIM == 2:
+                if MULTIPLE_SEEDS: self.albert_alphas = [0.7315999, 0.48995125, 0.4276303]
+                else: self.albert_alphas = [0.7315999]
+            else:
+                raise NotImplementedError
 
     def setup(self):
         print("\nSetting up Pick-to-Learn")
@@ -62,16 +71,24 @@ class PickToLearn():
         t1 = time.time()
 
         if MULTIPLE_SEEDS:
-            self.model_list, ttimes1 = \
-                    self.fit_initial_model_multiple_seeds(self.rng_list, 
-                                                        self.seed_list, 
-                                                        self.candidates)
-            self.D_C_list, ttimes2 = self.get_D_C_multiple_models(self.rng_list)
-            self.method_times = [t2 + t3 + (t1-t0) for (t2, t3) in zip(ttimes1, ttimes2)]
             self.albert_alphas = []
             self.albert_num_samples = []
             self.albert_times = []
-            for i in range(len(self.model_list)):
+            if self.run_albert:
+                for i in range(len(self.rng_list)):
+                    print("\nRunning Albert's method!")
+                    rng = self.rng_list[i]
+                    alpha, total_time, _, total_num_samples = \
+                        solve_iterative_method(ENV, ALBERT_EPS, ALBERT_DELT, ALBERT_M, 
+                                                HORIZON, self.policy, INPUT_DIM, ARGS, 
+                                                rng, RANGE_X, EGO_SETTING, 
+                                                ADVERSARY_SETTING, alpha_init=-np.inf)
+                    self.albert_alphas.append(alpha)
+                    self.albert_num_samples.append(total_num_samples)
+                    self.albert_times.append(total_time)
+                return 
+
+            for i in range(len(self.rng_list)):
                 # model = self.model_list[i]
                 # seed = self.seed_list[i]
                 # error_gp_ys = model.get_error_of_model_for_points(self.error_gp_candidates, \
@@ -84,23 +101,14 @@ class PickToLearn():
                 self.T_x.append(np.array([[]]))
                 self.T_y.append(np.array([[]]))
                 self.llambdas.append(np.array([]))
-
-                rng = self.rng_list[i]
-                print("\nRunning Albert's method!")
-                alpha, total_time, _, total_num_samples = \
-                    solve_iterative_method(ENV, ALBERT_EPS, ALBERT_DELT, ALBERT_M, 
-                                            HORIZON, self.policy, INPUT_DIM, ARGS, 
-                                            rng, RANGE_X, EGO_SETTING, 
-                                            ADVERSARY_SETTING, alpha_init=-np.inf)
-                #print(f"Final alpha: {alpha:.4f}, Total time taken: {total_time:.2f} seconds")
-                self.albert_alphas.append(alpha)
-                self.albert_num_samples.append(total_num_samples)
-                self.albert_times.append(total_time)
+            
+            self.model_list, ttimes1 = \
+                    self.fit_initial_model_multiple_seeds(self.rng_list, 
+                                                        self.seed_list, 
+                                                        self.candidates)
+            self.D_C_list, ttimes2 = self.get_D_C_multiple_models(self.rng_list)
+            self.method_times = [t2 + t3 + (t1-t0) for (t2, t3) in zip(ttimes1, ttimes2)]
         else:
-            model, ttime1 = self.fit_initial_model(RNG, RANDOM_SEED, self.candidates)
-            self.D_C_list, ttime2 = self.get_D_C_multiple_models([RNG])
-            self.model_list = [model]
-            self.method_times = [ttime1 + ttime2[0] + (t1-t0)]
             # error_gp_ys = model.get_error_of_model_for_points(self.error_gp_candidates, \
             #                                         self.error_gp_true_costs, BETA)
             # error_gp = self.fit_initial_error_gp(self.error_gp_candidates, error_gp_ys)
@@ -112,16 +120,23 @@ class PickToLearn():
             self.T_y.append(np.array([[]]))
             self.llambdas.append(np.array([]))
 
-            print("\nRunning Albert's method!")
-            alpha, total_time, _, total_num_samples = \
-                solve_iterative_method(ENV, ALBERT_EPS, ALBERT_DELT, 
-                                        ALBERT_M, HORIZON, self.policy, 
-                                        INPUT_DIM, ARGS, RNG, RANGE_X,
-                                        EGO_SETTING, ADVERSARY_SETTING,
-                                        alpha_init=-np.inf)
-            self.albert_alphas = [alpha]
-            self.albert_num_samples = [total_num_samples]
-            self.albert_times = [total_time]
+            if self.run_albert:
+                print("\nRunning Albert's method!")
+                alpha, total_time, _, total_num_samples = \
+                    solve_iterative_method(ENV, ALBERT_EPS, ALBERT_DELT, 
+                                            ALBERT_M, HORIZON, self.policy, 
+                                            INPUT_DIM, ARGS, RNG, RANGE_X,
+                                            EGO_SETTING, ADVERSARY_SETTING,
+                                            alpha_init=-np.inf)
+                self.albert_alphas = [alpha]
+                self.albert_num_samples = [total_num_samples]
+                self.albert_times = [total_time]
+                return
+            
+            model, ttime1 = self.fit_initial_model(RNG, RANDOM_SEED, self.candidates)
+            self.D_C_list, ttime2 = self.get_D_C_multiple_models([RNG])
+            self.model_list = [model]
+            self.method_times = [ttime1 + ttime2[0] + (t1-t0)]
 
         self.plot_multiple_models(self.learned_V, self.model_list, self.seed_list,  
                                     self.oned_x, self.oned_y, self.albert_alphas)
@@ -226,8 +241,8 @@ class PickToLearn():
 
     def get_validation_dataset(self):
         print("Obtaining Validation Dataset")
-        if os.path.isfile(f"drone_pickles_{INPUT_DIM}D/validation_data.pkl"):
-            with open(f"drone_pickles_{INPUT_DIM}D/validation_data.pkl", "rb") as f:
+        if os.path.isfile(f"{VALIDATION_LOGDIR}/validation_data.pkl"):
+            with open(f"{VALIDATION_LOGDIR}/validation_data.pkl", "rb") as f:
                 validation_candidates, validation_true_costs, full_validation_candidates, \
                 learned_V = \
                     pickle.load(f)
@@ -238,7 +253,7 @@ class PickToLearn():
                                             F, VALIDATION_DISCRETIZATION, INPUT_DIM,
                                             self.policy,
                                             get_learned_V=True)
-            with open(f'drone_pickles_{INPUT_DIM}D/validation_data.pkl', 'wb') as f:
+            with open(f'{VALIDATION_LOGDIR}/validation_data.pkl', 'wb') as f:
                 pickle.dump([validation_candidates, validation_true_costs, \
                             full_validation_candidates, learned_V], f)
         print("Done!")
@@ -381,7 +396,8 @@ class PickToLearn():
         # Get a_{h,eta}(z) and u_{h,eta}(z)
         error_function = None
         final_scores, error_variances, nan_mask = model.score_function(C_x, 
-                                        rng_instance, error_function, BETA, t=stage)
+                                        rng_instance, error_function, BETA, t=stage,
+                                        decay_factor=DECAY_RATE)
         # Run conformal prediction to get ehat
         e = model.get_error_of_model_for_points(C_x, C_costs, BETA)
         e = e[nan_mask]
@@ -397,7 +413,8 @@ class PickToLearn():
                                                         e, ALPHA)
         self.llambdas[model_idx] = np.append(self.llambdas[model_idx], llambda)
         final_scores, error_variances, nan_mask = model.score_function(remaining, 
-                                        rng_instance, error_function, BETA, t=stage)
+                                        rng_instance, error_function, BETA, t=stage,
+                                        decay_factor=DECAY_RATE)
         ehat = final_scores + llambda * error_variances
         remaining = remaining[nan_mask]
         # print("\n\n\n\n\n\n", final_scores, llambda, error_variances, "\n\n\n\n\n\n\n")
@@ -428,7 +445,8 @@ class PickToLearn():
         error_function = None
         # Get a_{h,eta}(z) and u_{h,eta}(z)
         final_scores, error_variances, nan_mask = model.score_function(C_x, 
-                                        rng_instance, error_function, BETA, t=0)
+                                        rng_instance, error_function, BETA, t=0,
+                                        decay_factor=DECAY_RATE)
         # Run conformal prediction to get ehat
         e = model.get_error_of_model_for_points(C_x, C_costs, BETA)
         e = e[nan_mask]
@@ -444,7 +462,8 @@ class PickToLearn():
                                                         e, ALPHA)
         self.llambdas[model_idx] = np.append(self.llambdas[model_idx], llambda)
         final_scores, error_variances, nan_mask = model.score_function(D_x, 
-                                        rng_instance, error_function, BETA, t=0)
+                                        rng_instance, error_function, BETA, t=0,
+                                        decay_factor=DECAY_RATE)
         ehat = final_scores + llambda * error_variances
         t3 = time.time()
         self.plot_colormap_points(D_x[nan_mask], ehat, self.seed_list[model_idx],
@@ -517,13 +536,20 @@ class PickToLearn():
 
     def validate_albert_method(self):
         results_dict = {}
-        for i in range(len(self.model_list)):
-            seed = self.seed_list[i]
-            tpr, fpr, tnr, fnr = validate_albert(self.policy, self.albert_alphas[i], 
+        if MULTIPLE_SEEDS:
+            for i in range(len(self.rng_list)):
+                seed = self.seed_list[i]
+                tpr, fpr, tnr, fnr = validate_albert(self.policy, self.albert_alphas[i], 
+                                                        self.validation_candidates, 
+                                                        self.validation_true_costs,
+                                                        self.state_expander)
+                results_dict[seed] = [tpr, fpr, tnr, fnr]
+        else:
+            tpr, fpr, tnr, fnr = validate_albert(self.policy, self.albert_alphas[0], 
                                                     self.validation_candidates, 
                                                     self.validation_true_costs,
                                                     self.state_expander)
-            results_dict[seed] = [tpr, fpr, tnr, fnr]
+            results_dict[RANDOM_SEED] = [tpr, fpr, tnr, fnr]
 
         keys = list(results_dict.keys())
         all_tprs = [results_dict[key][0] for key in keys]
