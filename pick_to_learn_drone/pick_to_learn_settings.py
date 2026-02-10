@@ -55,7 +55,7 @@ LOGDIR = 'drone_model_dir_' + str(INPUT_DIM) + 'D'
 ERROR_GP_LOGDIR = 'drone_errorgp_dir_' + str(INPUT_DIM) + 'D'
 
 ALBERT_EPS = 0.1
-ALBERT_DELT = 0.05
+ALBERT_DELT = 1e-12 #0.05
 ALBERT_M = 7
 
 ########################### GET POLICY ###########################

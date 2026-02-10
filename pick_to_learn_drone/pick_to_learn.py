@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os 
 import pickle
+import time
 
 
 class PickToLearn():
@@ -44,9 +45,11 @@ class PickToLearn():
         self.state_expander = expand_state_based_on_model_dim(EGO_SETTING, 
                                                         ADVERSARY_SETTING,
                                                         INPUT_DIM)
+        self.method_times = []
 
     def setup(self):
         print("\nSetting up Pick-to-Learn")
+        t0 = time.time()
         self.D_x, self.D_y, self.full_D_x = self.get_D()
         self.acq_calib_candidates, self.acq_calib_true_costs, self.full_acq_calib_candidates = \
             self.get_acquisition_fn_calib_dataset()
@@ -56,12 +59,17 @@ class PickToLearn():
             self.learned_V = self.get_validation_dataset()
         self.candidates, self.oned_x, self.oned_y, self.full_candidates = \
             self.get_candidates_helper()  # May not be very necessary
+        t1 = time.time()
 
         if MULTIPLE_SEEDS:
-            self.model_list = self.fit_initial_model_multiple_seeds(self.rng_list, 
-                                                                    self.seed_list, 
-                                                                    self.candidates)
+            self.model_list, ttimes = \
+                    self.fit_initial_model_multiple_seeds(self.rng_list, 
+                                                        self.seed_list, 
+                                                        self.candidates)
+            self.method_times = [t + (t1-t0) for t in ttimes]
             self.albert_alphas = []
+            self.albert_num_samples = []
+            self.albert_times = []
             for i in range(len(self.model_list)):
                 model = self.model_list[i]
                 # seed = self.seed_list[i]
@@ -78,16 +86,19 @@ class PickToLearn():
 
                 rng = self.rng_list[i]
                 print("\nRunning Albert's method!")
-                alpha, total_time, _ = \
+                alpha, total_time, _, total_num_samples = \
                     solve_iterative_method(ENV, ALBERT_EPS, ALBERT_DELT, ALBERT_M, 
                                             HORIZON, self.policy, INPUT_DIM, ARGS, 
                                             rng, RANGE_X, EGO_SETTING, 
                                             ADVERSARY_SETTING, alpha_init=-np.inf)
                 #print(f"Final alpha: {alpha:.4f}, Total time taken: {total_time:.2f} seconds")
                 self.albert_alphas.append(alpha)
+                self.albert_num_samples.append(total_num_samples)
+                self.albert_times.append(total_time)
         else:
-            model = self.fit_initial_model(RNG, RANDOM_SEED, self.candidates)
+            model, ttime = self.fit_initial_model(RNG, RANDOM_SEED, self.candidates)
             self.model_list = [model]
+            self.method_times = [ttime + (t1-t0)]
             # error_gp_ys = model.get_error_of_model_for_points(self.error_gp_candidates, \
             #                                         self.error_gp_true_costs, BETA)
             # error_gp = self.fit_initial_error_gp(self.error_gp_candidates, error_gp_ys)
@@ -100,13 +111,15 @@ class PickToLearn():
             self.llambdas.append(np.array([]))
 
             print("\nRunning Albert's method!")
-            alpha, total_time, _ = \
+            alpha, total_time, _, total_num_samples = \
                 solve_iterative_method(ENV, ALBERT_EPS, ALBERT_DELT, 
                                         ALBERT_M, HORIZON, self.policy, 
                                         INPUT_DIM, ARGS, RNG, RANGE_X,
                                         EGO_SETTING, ADVERSARY_SETTING,
                                         alpha_init=-np.inf)
             self.albert_alphas = [alpha]
+            self.albert_num_samples = [total_num_samples]
+            self.albert_times = [total_time]
 
         self.plot_multiple_models(self.learned_V, self.model_list, self.seed_list,  
                                     self.oned_x, self.oned_y, self.albert_alphas)
@@ -218,6 +231,7 @@ class PickToLearn():
 
     def fit_initial_model(self, rng_instance, seed_val, candidates):
         print("Fitting Initial Model")
+        t0 = time.time()
         initial_gp_candidates, initial_gp_true_costs, full_initial_gp_candidates = \
             self.get_initial_gp_dataset(rng_instance)
 
@@ -232,18 +246,21 @@ class PickToLearn():
         #                     to_plot=False)
         model.initial_setup_given_points(initial_gp_candidates, 
                                 initial_gp_true_costs, to_plot=False)
+        t1 = time.time()
         print("Done!")
 
-        return model
+        return model, t1-t0
 
     def fit_initial_model_multiple_seeds(self, rng_list, seed_list, candidates):
         model_list = []
+        times = []
         for i in range(len(rng_list)):
             rng = rng_list[i]
             seed_val = seed_list[i] 
-            model = self.fit_initial_model(rng, seed_val, candidates)
+            model, ttime = self.fit_initial_model(rng, seed_val, candidates)
             model_list.append(model)
-        return model_list
+            times.append(ttime)
+        return model_list, times
 
     def plot_model(self, model, learned_V, oned_x, oned_y, albert_alpha,
                     seed=None, stage='init'):
@@ -302,6 +319,8 @@ class PickToLearn():
     
     def picktolearn_one_iteration(self, model, error_gp, new_x, rng_instance, model_idx,
                                         stage):
+        tot_time = 0
+        t0 = time.time()
         if self.T_x[model_idx].size == 0:
             self.T_x[model_idx] = new_x
             self.T_y[model_idx] = model.f(self.state_expander(new_x))
@@ -337,12 +356,14 @@ class PickToLearn():
         e = model.get_error_of_model_for_points(self.acq_calib_candidates, 
                                             self.acq_calib_true_costs, BETA)
         e = e[nan_mask]
+        t1 = time.time()
         self.plot_colormap_points(self.acq_calib_candidates[nan_mask], e, 
                                     self.seed_list[model_idx],
                                     'calib_true_e', stage)
         self.plot_colormap_points(self.acq_calib_candidates[nan_mask], final_scores, 
                                     self.seed_list[model_idx],
                                     'calib_score_fn', stage)
+        t2 = time.time()
         llambda = get_quantile_for_interval_score_fn(final_scores, error_variances, 
                                                         e, ALPHA)
         self.llambdas[model_idx] = np.append(self.llambdas[model_idx], llambda)
@@ -352,16 +373,23 @@ class PickToLearn():
         remaining = remaining[nan_mask]
         # print("\n\n\n\n\n\n", final_scores, llambda, error_variances, "\n\n\n\n\n\n\n")
         
+        t3 = time.time()
         self.plot_colormap_points(remaining, ehat, self.seed_list[model_idx],
                                     'score_fn', stage)
 
         # Find the new z
+        t4 = time.time()
         argmax_index = np.argmax(ehat)
         new_x = np.expand_dims(remaining[argmax_index], axis=0)
         ehat_value = ehat[argmax_index]
-        return new_x, ehat_value
+        t5 = time.time()
+
+        tot_time += (t1-t0) + (t3-t2) + (t5-t4)
+        return new_x, ehat_value, tot_time
     
     def picktolearn_alg(self, model, error_gp, rng_instance, model_idx):
+        tot_time = 0
+        t0 = time.time()
         # error_function = error_gp.forward()
         error_function = None
         # Get a_{h,eta}(z) and u_{h,eta}(z)
@@ -371,39 +399,47 @@ class PickToLearn():
         e = model.get_error_of_model_for_points(self.acq_calib_candidates, 
                                             self.acq_calib_true_costs, BETA)
         e = e[nan_mask]
+        t1 = time.time()
         self.plot_colormap_points(self.acq_calib_candidates[nan_mask], e, 
                                     self.seed_list[model_idx],
                                     'calib_true_e', 'init')
         self.plot_colormap_points(self.acq_calib_candidates[nan_mask], final_scores, 
                                     self.seed_list[model_idx],
                                     'calib_score_fn', 'init')
+        t2 = time.time()
         llambda = get_quantile_for_interval_score_fn(final_scores, error_variances, 
                                                         e, ALPHA)
         self.llambdas[model_idx] = np.append(self.llambdas[model_idx], llambda)
         final_scores, error_variances, nan_mask = model.score_function(self.D_x, 
                                         rng_instance, error_function, BETA, t=0)
         ehat = final_scores + llambda * error_variances
+        t3 = time.time()
         self.plot_colormap_points(self.D_x[nan_mask], ehat, self.seed_list[model_idx],
                                 'score_fn', 'init')
 
         # Find the new z
+        t4 = time.time()
         argmax_index = np.argmax(ehat)
         new_x = np.expand_dims(self.D_x[argmax_index], axis=0)
         ehat_value = ehat[argmax_index]
+        t5 = time.time()
+
+        tot_time += (t1-t0) + (t3-t2) + (t5-t4)
 
         it = 0
         while ehat_value >= EHAT_THRESHOLD and \
                 len(self.T_x[model_idx]) < MAX_NUM_ACQUIRED_POINTS:
-            new_x, ehat_value = \
+            new_x, ehat_value, ttime = \
                 self.picktolearn_one_iteration(model, error_gp, new_x, 
                                                 rng_instance, model_idx,
                                                 stage=it)
+            tot_time += ttime
             it += 1
             self.plot_model(model, self.learned_V, self.oned_x, self.oned_y, 
                             self.albert_alphas[model_idx], 
                             seed=self.seed_list[model_idx], stage=it)
             
-            print("\n\n\n\n\n\nSTAGE", it, "\n\n\n\n\n\n\n")
+            print("\n\n\n\n\n\nITERATION", it, "\n\n\n\n\n\n\n")
         
         seed = self.seed_list[model_idx]
         plt.figure()
@@ -411,6 +447,8 @@ class PickToLearn():
         plt.xlabel("Iterations")
         plt.ylabel("Lambda Value")
         plt.savefig(LOGDIR + f"/lambdas_{seed}.png")
+
+        self.method_times[model_idx] += tot_time
 
     def run_validation(self):
         results_dict = {}
@@ -441,6 +479,9 @@ class PickToLearn():
         print("Average FPR Over All Seeds: ", np.mean(all_fprs))
         print("Average TNR Over All Seeds: ", np.mean(all_tnrs))
 
+        print("\nMethod total times and mean", self.method_times, \
+                                            np.mean(self.method_times))
+
     def validate_albert_method(self):
         results_dict = {}
         for i in range(len(self.model_list)):
@@ -470,3 +511,10 @@ class PickToLearn():
         print("Average FNR Over All Seeds: ", np.mean(all_fnrs))
         print("Average FPR Over All Seeds: ", np.mean(all_fprs))
         print("Average TNR Over All Seeds: ", np.mean(all_tnrs))
+
+        print("\nAlbert alphas and mean", self.albert_alphas, \
+                                            np.mean(self.albert_alphas))
+        print("Albert total times and mean", self.albert_times, \
+                                            np.mean(self.albert_times))
+        print("Albert total num samples and mean", self.albert_num_samples, \
+                                            np.mean(self.albert_num_samples))

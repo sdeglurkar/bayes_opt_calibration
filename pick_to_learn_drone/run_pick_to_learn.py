@@ -24,6 +24,8 @@ obj.plot_multiple_models(obj.learned_V, obj.model_list, obj.seed_list,
                                     stage='final')
 obj.run_validation()
 print(results)
+print("Size of C + Number of Initial GP Samples:", NUM_CALIBRATION_POINTS + \
+                                                        NUM_MODEL_INIT_ITERS)
 obj.validate_albert_method()
 
 
