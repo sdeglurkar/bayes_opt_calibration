@@ -5,6 +5,7 @@ from Lipschitz_Continuous_Reachability_Learning import experiment_script
 from experiment_script.env_utils import get_args, get_env_and_policy
 
 from helper import *
+from find_size_of_C import *
 
 from scipy.stats import norm
 
@@ -40,11 +41,15 @@ DESIRED_N = 3600 #500 #1000 #3600
 
 ########################### ACQUISITION FN SETTINGS ###########################
 ALPHA = 0.01 #0.05
-NUM_CALIBRATION_POINTS = 100 #200 #100
+TOLERANCE_ALPHA = 0.01 
+BETA_CONFORMAL = 0.1  #1e-12
+SIZE_C = find_size_of_C(ALPHA, TOLERANCE_ALPHA, BETA_CONFORMAL)
+NUM_CALIBRATION_POINTS = 150 #100 #200 
 NUM_ERROR_GP_POINTS = 50
 EHAT_THRESHOLD = 0.3
 MAX_NUM_ACQUIRED_POINTS = 50
 assert NUM_CALIBRATION_POINTS >= (1-ALPHA)/ALPHA  # Necessary for conformal prediction
+assert NUM_CALIBRATION_POINTS >= SIZE_C  # Necessary for conformal prediction
 
 ########################### OTHER SETTINGS ###########################
 VALIDATION_DISCRETIZATION = 0.05
@@ -55,7 +60,7 @@ LOGDIR = 'drone_model_dir_' + str(INPUT_DIM) + 'D'
 ERROR_GP_LOGDIR = 'drone_errorgp_dir_' + str(INPUT_DIM) + 'D'
 
 ALBERT_EPS = 0.1
-ALBERT_DELT = 1e-12 #0.05
+ALBERT_DELT = BETA_CONFORMAL #1e-12 #0.05
 ALBERT_M = 7
 
 ########################### GET POLICY ###########################
