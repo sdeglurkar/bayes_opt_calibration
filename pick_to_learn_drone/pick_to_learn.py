@@ -26,14 +26,14 @@ class PickToLearn():
         self.T_x = []
         self.T_y = []
         self.D_x = None 
-        self.D_y = None
+        # self.D_y = None
         self.full_D_x = None  
         self.acq_calib_candidates = None 
         self.acq_calib_true_costs = None
         self.full_acq_calib_candidates = None  
-        self.error_gp_candidates = None 
-        self.error_gp_true_costs = None 
-        self.full_error_gp_candidates = None
+        # self.error_gp_candidates = None 
+        # self.error_gp_true_costs = None 
+        # self.full_error_gp_candidates = None
         self.validation_candidates = None
         self.validation_true_costs = None 
         self.full_validation_candidates = None
@@ -50,11 +50,11 @@ class PickToLearn():
     def setup(self):
         print("\nSetting up Pick-to-Learn")
         t0 = time.time()
-        self.D_x, self.D_y, self.full_D_x = self.get_D()
-        self.acq_calib_candidates, self.acq_calib_true_costs, self.full_acq_calib_candidates = \
-            self.get_acquisition_fn_calib_dataset()
-        self.error_gp_candidates, self.error_gp_true_costs, self.full_error_gp_candidates = \
-            self.get_error_gp_dataset()  # Not currently used
+        # self.D_x, self.D_y, self.full_D_x = self.get_D()
+        # self.acq_calib_candidates, self.acq_calib_true_costs, self.full_acq_calib_candidates = \
+        #     self.get_acquisition_fn_calib_dataset()
+        # self.error_gp_candidates, self.error_gp_true_costs, self.full_error_gp_candidates = \
+        #     self.get_error_gp_dataset()  # Not currently used
         self.validation_candidates, self.validation_true_costs, self.full_validation_candidates, \
             self.learned_V = self.get_validation_dataset()
         self.candidates, self.oned_x, self.oned_y, self.full_candidates = \
@@ -62,16 +62,17 @@ class PickToLearn():
         t1 = time.time()
 
         if MULTIPLE_SEEDS:
-            self.model_list, ttimes = \
+            self.model_list, ttimes1 = \
                     self.fit_initial_model_multiple_seeds(self.rng_list, 
                                                         self.seed_list, 
                                                         self.candidates)
-            self.method_times = [t + (t1-t0) for t in ttimes]
+            self.D_C_list, ttimes2 = self.get_D_C_multiple_models(self.rng_list)
+            self.method_times = [t2 + t3 + (t1-t0) for (t2, t3) in zip(ttimes1, ttimes2)]
             self.albert_alphas = []
             self.albert_num_samples = []
             self.albert_times = []
             for i in range(len(self.model_list)):
-                model = self.model_list[i]
+                # model = self.model_list[i]
                 # seed = self.seed_list[i]
                 # error_gp_ys = model.get_error_of_model_for_points(self.error_gp_candidates, \
                 #                                     self.error_gp_true_costs, BETA)
@@ -96,9 +97,10 @@ class PickToLearn():
                 self.albert_num_samples.append(total_num_samples)
                 self.albert_times.append(total_time)
         else:
-            model, ttime = self.fit_initial_model(RNG, RANDOM_SEED, self.candidates)
+            model, ttime1 = self.fit_initial_model(RNG, RANDOM_SEED, self.candidates)
+            self.D_C_list, ttime2 = self.get_D_C_multiple_models([RNG])
             self.model_list = [model]
-            self.method_times = [ttime + (t1-t0)]
+            self.method_times = [ttime1 + ttime2[0] + (t1-t0)]
             # error_gp_ys = model.get_error_of_model_for_points(self.error_gp_candidates, \
             #                                         self.error_gp_true_costs, BETA)
             # error_gp = self.fit_initial_error_gp(self.error_gp_candidates, error_gp_ys)
@@ -126,42 +128,48 @@ class PickToLearn():
 
         print("Done with setup!")
 
-    def get_D(self):
+    def get_D(self, rng_instance):
         print("Obtaining D")
-        if os.path.isfile(f"drone_pickles_{INPUT_DIM}D/D_{DESIRED_N}.pkl"):
-            with open(f"drone_pickles_{INPUT_DIM}D/D_{DESIRED_N}.pkl", "rb") as f:
-                D_candidates, D_true_costs, full_D_candidates = pickle.load(f)
-        else:
-            D_candidates, D_true_costs, full_D_candidates = \
+        D_candidates, D_true_costs, full_D_candidates = \
                 get_ground_truths_for_random_points(RANGE_X, EGO_SETTING, 
-                                                    ADVERSARY_SETTING, RNG, F, 
-                                                    DESIRED_N, INPUT_DIM)
-            with open(f'drone_pickles_{INPUT_DIM}D/D_{DESIRED_N}.pkl', 'wb') as f:
-                pickle.dump([D_candidates, D_true_costs, full_D_candidates], f)
+                                                    ADVERSARY_SETTING, rng_instance, F, 
+                                                    DESIRED_N, INPUT_DIM,
+                                                    get_costs=False)
+        # if os.path.isfile(f"drone_pickles_{INPUT_DIM}D/D_{DESIRED_N}.pkl"):
+        #     with open(f"drone_pickles_{INPUT_DIM}D/D_{DESIRED_N}.pkl", "rb") as f:
+        #         D_candidates, D_true_costs, full_D_candidates = pickle.load(f)
+        # else:
+        #     D_candidates, D_true_costs, full_D_candidates = \
+        #         get_ground_truths_for_random_points(RANGE_X, EGO_SETTING, 
+        #                                             ADVERSARY_SETTING, RNG, F, 
+        #                                             DESIRED_N, INPUT_DIM)
+        #     with open(f'drone_pickles_{INPUT_DIM}D/D_{DESIRED_N}.pkl', 'wb') as f:
+        #         pickle.dump([D_candidates, D_true_costs, full_D_candidates], f)
         N = len(D_candidates)
         assert N == DESIRED_N
-        if PLOT_D:
-            raise NotImplementedError
-            plt.scatter(D_candidates[:, 0], D_candidates[:, 1])
-            plt.show()
         print("Done!")
         
         return D_candidates, D_true_costs, full_D_candidates
 
-    def get_error_gp_dataset(self):
+    def get_error_gp_dataset(self, rng_instance):
         print("Obtaining Error GP Dataset")
-        if os.path.isfile(f"drone_pickles_{INPUT_DIM}D/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl"):
-            with open(f"drone_pickles_{INPUT_DIM}D/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", "rb") as f:
-                error_gp_candidates, error_gp_true_costs, full_error_gp_candidates = \
-                    pickle.load(f)
-        else:
-            error_gp_candidates, error_gp_true_costs, full_error_gp_candidates = \
+        error_gp_candidates, error_gp_true_costs, full_error_gp_candidates = \
                 get_ground_truths_for_random_points(RANGE_X, EGO_SETTING, 
-                                                    ADVERSARY_SETTING, RNG, F, 
+                                                    ADVERSARY_SETTING, rng_instance, F, 
                                                     NUM_ERROR_GP_POINTS, INPUT_DIM)
-            with open(f"drone_pickles_{INPUT_DIM}D/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", 'wb') as f:
-                pickle.dump([error_gp_candidates, error_gp_true_costs, \
-                            full_error_gp_candidates], f)
+
+        # if os.path.isfile(f"drone_pickles_{INPUT_DIM}D/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl"):
+        #     with open(f"drone_pickles_{INPUT_DIM}D/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", "rb") as f:
+        #         error_gp_candidates, error_gp_true_costs, full_error_gp_candidates = \
+        #             pickle.load(f)
+        # else:
+        #     error_gp_candidates, error_gp_true_costs, full_error_gp_candidates = \
+        #         get_ground_truths_for_random_points(RANGE_X, EGO_SETTING, 
+        #                                             ADVERSARY_SETTING, RNG, F, 
+        #                                             NUM_ERROR_GP_POINTS, INPUT_DIM)
+        #     with open(f"drone_pickles_{INPUT_DIM}D/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", 'wb') as f:
+        #         pickle.dump([error_gp_candidates, error_gp_true_costs, \
+        #                     full_error_gp_candidates], f)
         print("Done!")
 
         return error_gp_candidates, error_gp_true_costs, full_error_gp_candidates
@@ -176,25 +184,46 @@ class PickToLearn():
 
         return initial_gp_candidates, initial_gp_true_costs, full_initial_gp_candidates
 
-    def get_acquisition_fn_calib_dataset(self):
+    def get_acquisition_fn_calib_dataset(self, rng_instance):
         print("Obtaining C")
-        if os.path.isfile(f"drone_pickles_{INPUT_DIM}D/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl"):
-            with open(f"drone_pickles_{INPUT_DIM}D/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl", "rb") as f:
-                acq_calib_candidates, acq_calib_true_costs, full_acq_calib_candidates = \
-                    pickle.load(f)
-        else:
-            acq_calib_candidates, acq_calib_true_costs, full_acq_calib_candidates = \
+        acq_calib_candidates, acq_calib_true_costs, full_acq_calib_candidates = \
                 get_ground_truths_for_random_points(RANGE_X, EGO_SETTING, 
-                                                    ADVERSARY_SETTING, RNG, F, 
+                                                    ADVERSARY_SETTING, rng_instance, F, 
                                                     NUM_CALIBRATION_POINTS,
                                                     INPUT_DIM)
-            with open(f"drone_pickles_{INPUT_DIM}D/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl", 'wb') as f:
-                pickle.dump([acq_calib_candidates, acq_calib_true_costs, \
-                            full_acq_calib_candidates], f)
+        # if os.path.isfile(f"drone_pickles_{INPUT_DIM}D/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl"):
+        #     with open(f"drone_pickles_{INPUT_DIM}D/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl", "rb") as f:
+        #         acq_calib_candidates, acq_calib_true_costs, full_acq_calib_candidates = \
+        #             pickle.load(f)
+        # else:
+        #     acq_calib_candidates, acq_calib_true_costs, full_acq_calib_candidates = \
+        #         get_ground_truths_for_random_points(RANGE_X, EGO_SETTING, 
+        #                                             ADVERSARY_SETTING, RNG, F, 
+        #                                             NUM_CALIBRATION_POINTS,
+        #                                             INPUT_DIM)
+        #     with open(f"drone_pickles_{INPUT_DIM}D/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl", 'wb') as f:
+        #         pickle.dump([acq_calib_candidates, acq_calib_true_costs, \
+        #                     full_acq_calib_candidates], f)
         print("Done!")
 
         return acq_calib_candidates, acq_calib_true_costs, full_acq_calib_candidates
-        
+    
+    def get_D_C_multiple_models(self, rng_list):
+        ttimes = []
+        D_C_list = []
+        for rng in rng_list:
+            t0 = time.time()
+            D_candidates, D_true_costs, full_D_candidates = self.get_D(rng)
+            acq_calib_candidates, acq_calib_true_costs, full_acq_calib_candidates = \
+                self.get_acquisition_fn_calib_dataset(rng)
+            dict_elem = {'D':[D_candidates, D_true_costs, full_D_candidates],
+                        'C': [acq_calib_candidates, acq_calib_true_costs, \
+                                full_acq_calib_candidates]}
+            D_C_list.append(dict_elem)
+            t1 = time.time()
+            ttimes.append(t1-t0)
+        return D_C_list, ttimes
+
     def get_validation_dataset(self):
         print("Obtaining Validation Dataset")
         if os.path.isfile(f"drone_pickles_{INPUT_DIM}D/validation_data.pkl"):
@@ -212,10 +241,6 @@ class PickToLearn():
             with open(f'drone_pickles_{INPUT_DIM}D/validation_data.pkl', 'wb') as f:
                 pickle.dump([validation_candidates, validation_true_costs, \
                             full_validation_candidates, learned_V], f)
-        if PLOT_VALIDATION_DATA:
-            raise NotImplementedError
-            plt.scatter(validation_candidates[:, 0], validation_candidates[:, 1])
-            plt.show()
         print("Done!")
 
         return validation_candidates, validation_true_costs, full_validation_candidates, \
@@ -321,6 +346,11 @@ class PickToLearn():
                                         stage):
         tot_time = 0
         t0 = time.time()
+       
+        D_x = self.D_C_list[model_idx]['D'][0]
+        C_x = self.D_C_list[model_idx]['C'][0]
+        C_costs = self.D_C_list[model_idx]['C'][1]
+
         if self.T_x[model_idx].size == 0:
             self.T_x[model_idx] = new_x
             self.T_y[model_idx] = model.f(self.state_expander(new_x))
@@ -333,7 +363,7 @@ class PickToLearn():
         
         model.optimize_given_T(np.array(self.T_x[model_idx]), 
                                 np.array(self.T_y[model_idx]))
-        remaining = np.array([elem for elem in np.array(self.D_x) if \
+        remaining = np.array([elem for elem in np.array(D_x) if \
                     elem not in self.T_x[model_idx]])
         
         # Now re-fit the error GP
@@ -350,17 +380,16 @@ class PickToLearn():
         
         # Get a_{h,eta}(z) and u_{h,eta}(z)
         error_function = None
-        final_scores, error_variances, nan_mask = model.score_function(self.acq_calib_candidates, 
+        final_scores, error_variances, nan_mask = model.score_function(C_x, 
                                         rng_instance, error_function, BETA, t=stage)
         # Run conformal prediction to get ehat
-        e = model.get_error_of_model_for_points(self.acq_calib_candidates, 
-                                            self.acq_calib_true_costs, BETA)
+        e = model.get_error_of_model_for_points(C_x, C_costs, BETA)
         e = e[nan_mask]
         t1 = time.time()
-        self.plot_colormap_points(self.acq_calib_candidates[nan_mask], e, 
+        self.plot_colormap_points(C_x[nan_mask], e, 
                                     self.seed_list[model_idx],
                                     'calib_true_e', stage)
-        self.plot_colormap_points(self.acq_calib_candidates[nan_mask], final_scores, 
+        self.plot_colormap_points(C_x[nan_mask], final_scores, 
                                     self.seed_list[model_idx],
                                     'calib_score_fn', stage)
         t2 = time.time()
@@ -390,37 +419,41 @@ class PickToLearn():
     def picktolearn_alg(self, model, error_gp, rng_instance, model_idx):
         tot_time = 0
         t0 = time.time()
+
+        D_x = self.D_C_list[model_idx]['D'][0]
+        C_x = self.D_C_list[model_idx]['C'][0]
+        C_costs = self.D_C_list[model_idx]['C'][1]
+
         # error_function = error_gp.forward()
         error_function = None
         # Get a_{h,eta}(z) and u_{h,eta}(z)
-        final_scores, error_variances, nan_mask = model.score_function(self.acq_calib_candidates, 
+        final_scores, error_variances, nan_mask = model.score_function(C_x, 
                                         rng_instance, error_function, BETA, t=0)
         # Run conformal prediction to get ehat
-        e = model.get_error_of_model_for_points(self.acq_calib_candidates, 
-                                            self.acq_calib_true_costs, BETA)
+        e = model.get_error_of_model_for_points(C_x, C_costs, BETA)
         e = e[nan_mask]
         t1 = time.time()
-        self.plot_colormap_points(self.acq_calib_candidates[nan_mask], e, 
+        self.plot_colormap_points(C_x[nan_mask], e, 
                                     self.seed_list[model_idx],
                                     'calib_true_e', 'init')
-        self.plot_colormap_points(self.acq_calib_candidates[nan_mask], final_scores, 
+        self.plot_colormap_points(C_x[nan_mask], final_scores, 
                                     self.seed_list[model_idx],
                                     'calib_score_fn', 'init')
         t2 = time.time()
         llambda = get_quantile_for_interval_score_fn(final_scores, error_variances, 
                                                         e, ALPHA)
         self.llambdas[model_idx] = np.append(self.llambdas[model_idx], llambda)
-        final_scores, error_variances, nan_mask = model.score_function(self.D_x, 
+        final_scores, error_variances, nan_mask = model.score_function(D_x, 
                                         rng_instance, error_function, BETA, t=0)
         ehat = final_scores + llambda * error_variances
         t3 = time.time()
-        self.plot_colormap_points(self.D_x[nan_mask], ehat, self.seed_list[model_idx],
+        self.plot_colormap_points(D_x[nan_mask], ehat, self.seed_list[model_idx],
                                 'score_fn', 'init')
 
         # Find the new z
         t4 = time.time()
         argmax_index = np.argmax(ehat)
-        new_x = np.expand_dims(self.D_x[argmax_index], axis=0)
+        new_x = np.expand_dims(D_x[argmax_index], axis=0)
         ehat_value = ehat[argmax_index]
         t5 = time.time()
 

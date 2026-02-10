@@ -92,7 +92,7 @@ def expand_state_based_on_model_dim(ego_setting, adversary_setting,
     return state_expander
 
 def get_ground_truths_for_random_points(range_x, ego_setting, adversary_setting, 
-                                        rng, f, size_set, model_dim):
+                                        rng, f, size_set, model_dim, get_costs=True):
     print("\nRunning get_ground_truths_for_random_points!") 
     ego_vx, ego_vy, ego_z, ego_vz = ego_setting
     ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz = adversary_setting
@@ -150,8 +150,11 @@ def get_ground_truths_for_random_points(range_x, ego_setting, adversary_setting,
                             ad_y1, ad_vy1,
                             ad_z1, ad_vz1))
 
-    # costs_at_random_points = np.expand_dims(f(random_points), -1)
-    costs_at_random_points = f(random_points)
+    if get_costs:
+        # costs_at_random_points = np.expand_dims(f(random_points), -1)
+        costs_at_random_points = f(random_points)
+    else:
+        costs_at_random_points = None
     print("Done!")
     return random_points[:, inds], costs_at_random_points, random_points
 
@@ -536,10 +539,10 @@ def validate_final_level_set(model, candidates, true_costs, beta):
     true_below_zero = np.where(true_costs <= 0)
     true_above_zero = np.where(true_costs > 0)
 
-    true_pos = np.intersect1d(gp_below_zero, true_below_zero)
-    false_pos = np.intersect1d(gp_below_zero, true_above_zero)
-    true_neg = np.intersect1d(gp_above_zero, true_above_zero)
-    false_neg = np.intersect1d(gp_above_zero, true_below_zero)
+    true_neg = np.intersect1d(gp_below_zero, true_below_zero)
+    false_neg = np.intersect1d(gp_below_zero, true_above_zero)
+    true_pos = np.intersect1d(gp_above_zero, true_above_zero)
+    false_pos = np.intersect1d(gp_above_zero, true_below_zero)
 
     tpr = len(true_pos) / (len(true_pos) + len(false_neg))
     fpr = len(false_pos) / (len(false_pos) + len(true_neg))
@@ -562,10 +565,10 @@ def validate_albert(policy, alpha, candidates, true_costs, state_expander):
     true_below_zero = np.where(true_costs <= 0)
     true_above_zero = np.where(true_costs > 0)
 
-    true_pos = np.intersect1d(pred_below_zero, true_below_zero)
-    false_pos = np.intersect1d(pred_below_zero, true_above_zero)
-    true_neg = np.intersect1d(pred_above_zero, true_above_zero)
-    false_neg = np.intersect1d(pred_above_zero, true_below_zero)
+    true_neg = np.intersect1d(pred_below_zero, true_below_zero)
+    false_neg = np.intersect1d(pred_below_zero, true_above_zero)
+    true_pos = np.intersect1d(pred_above_zero, true_above_zero)
+    false_pos = np.intersect1d(pred_above_zero, true_below_zero)
 
     tpr = len(true_pos) / (len(true_pos) + len(false_neg))
     fpr = len(false_pos) / (len(false_pos) + len(true_neg))
