@@ -46,15 +46,6 @@ class PickToLearn():
                                                         ADVERSARY_SETTING,
                                                         INPUT_DIM)
         self.method_times = []
-        self.run_albert = RUN_ALBERT
-        if not self.run_albert:
-            # Set albert_alphas here manually for plotting reasons
-            # 2D, ALBERT_EPS = 0.05 ALBERT_DELT = 0.1 ALBERT_M = 7
-            if INPUT_DIM == 2:
-                if MULTIPLE_SEEDS: self.albert_alphas = [0.7315999, 0.48995125, 0.4276303]
-                else: self.albert_alphas = [0.7315999]
-            else:
-                raise NotImplementedError
 
     def setup(self):
         print("\nSetting up Pick-to-Learn")
@@ -74,20 +65,17 @@ class PickToLearn():
             self.albert_alphas = []
             self.albert_num_samples = []
             self.albert_times = []
-            if self.run_albert:
-                for i in range(len(self.rng_list)):
-                    print("\nRunning Albert's method!")
-                    rng = self.rng_list[i]
-                    alpha, total_time, _, total_num_samples = \
-                        solve_iterative_method(ENV, ALBERT_EPS, ALBERT_DELT, ALBERT_M, 
-                                                HORIZON, self.policy, INPUT_DIM, ARGS, 
-                                                rng, RANGE_X, EGO_SETTING, 
-                                                ADVERSARY_SETTING, alpha_init=-np.inf)
-                    self.albert_alphas.append(alpha)
-                    self.albert_num_samples.append(total_num_samples)
-                    self.albert_times.append(total_time)
-                return 
-
+            for i in range(len(self.rng_list)):
+                print("\nRunning Albert's method!")
+                rng = self.rng_list[i]
+                alpha, total_time, _, total_num_samples = \
+                    solve_iterative_method(ENV, ALBERT_EPS, ALBERT_DELT, ALBERT_M, 
+                                            HORIZON, self.policy, INPUT_DIM, ARGS, 
+                                            rng, RANGE_X, EGO_SETTING, 
+                                            ADVERSARY_SETTING, alpha_init=-np.inf)
+                self.albert_alphas.append(alpha)
+                self.albert_num_samples.append(total_num_samples)
+                self.albert_times.append(total_time)
             for i in range(len(self.rng_list)):
                 # model = self.model_list[i]
                 # seed = self.seed_list[i]
@@ -120,18 +108,16 @@ class PickToLearn():
             self.T_y.append(np.array([[]]))
             self.llambdas.append(np.array([]))
 
-            if self.run_albert:
-                print("\nRunning Albert's method!")
-                alpha, total_time, _, total_num_samples = \
-                    solve_iterative_method(ENV, ALBERT_EPS, ALBERT_DELT, 
-                                            ALBERT_M, HORIZON, self.policy, 
-                                            INPUT_DIM, ARGS, RNG, RANGE_X,
-                                            EGO_SETTING, ADVERSARY_SETTING,
-                                            alpha_init=-np.inf)
-                self.albert_alphas = [alpha]
-                self.albert_num_samples = [total_num_samples]
-                self.albert_times = [total_time]
-                return
+            print("\nRunning Albert's method!")
+            alpha, total_time, _, total_num_samples = \
+                solve_iterative_method(ENV, ALBERT_EPS, ALBERT_DELT, 
+                                        ALBERT_M, HORIZON, self.policy, 
+                                        INPUT_DIM, ARGS, RNG, RANGE_X,
+                                        EGO_SETTING, ADVERSARY_SETTING,
+                                        alpha_init=-np.inf)
+            self.albert_alphas = [alpha]
+            self.albert_num_samples = [total_num_samples]
+            self.albert_times = [total_time]
             
             model, ttime1 = self.fit_initial_model(RNG, RANDOM_SEED, self.candidates)
             self.D_C_list, ttime2 = self.get_D_C_multiple_models([RNG])

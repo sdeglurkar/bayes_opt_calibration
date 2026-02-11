@@ -20,7 +20,7 @@ EGO_SETTING = [0.0, 0.7, 0.0, 0.0]
 HORIZON = 30
 
 ########################### GAUSSIAN PROCESS SETTINGS ###########################
-INPUT_DIM = 2
+INPUT_DIM = 6
 CONF_THRES = 0.9
 BETA = norm.ppf(CONF_THRES)
 NOISE_VAR = 0.001 
@@ -40,9 +40,15 @@ if MULTIPLE_SEEDS: assert len(MULTIPLE_SEED_LIST) > 0
 ########################### PICK-TO-LEARN BOUND SETTINGS ###########################
 DELTA = 1e-4
 DESIRED_N = 4000 #3600 #500 #1000 #3600
+if INPUT_DIM <= 3:
+    DESIRED_N = 4000
+elif INPUT_DIM == 4:
+    DESIRED_N = 8000
+elif INPUT_DIM == 6:
+    DESIRED_N = 10000
 
 ########################### ACQUISITION FN SETTINGS ###########################
-ALPHA = 0.01 #0.015 #0.01 
+ALPHA = 0.015 #0.01 
 DECAY_RATE = 0.95
 TOLERANCE_ALPHA = ALPHA #0.01 
 BETA_CONFORMAL = 0.1  #1e-12
@@ -55,7 +61,6 @@ assert NUM_CALIBRATION_POINTS >= SIZE_C  # Necessary for conformal prediction
 NUM_ERROR_GP_POINTS = 50  # Not used
 
 ########################### BASELINE SETTINGS ###########################
-RUN_ALBERT = False
 ALBERT_EPS = 0.05 #0.1
 ALBERT_DELT = BETA_CONFORMAL #1e-12 #0.05
 ALBERT_M = 7

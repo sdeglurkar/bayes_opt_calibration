@@ -9,25 +9,23 @@ from pick_to_learn_settings import *
 obj = PickToLearn()
 obj.setup()
 
-if not obj.run_albert:
-    results = {'T': [], 'epsU': []}
-    for i in range(len(obj.model_list)):
-        model = obj.model_list[i]
-        error_gp = obj.error_gp_list[i]
-        rng_instance = obj.rng_list[i]
-        obj.picktolearn_alg(model, error_gp, rng_instance, i)
-        epsL, epsU = find_epsLU(len(obj.T_x[i]), DESIRED_N, DELTA)
-        results['T'].append(len(obj.T_x[i]))
-        results['epsU'].append(epsU)
+results = {'T': [], 'epsU': []}
+for i in range(len(obj.model_list)):
+    model = obj.model_list[i]
+    error_gp = obj.error_gp_list[i]
+    rng_instance = obj.rng_list[i]
+    obj.picktolearn_alg(model, error_gp, rng_instance, i)
+    epsL, epsU = find_epsLU(len(obj.T_x[i]), DESIRED_N, DELTA)
+    results['T'].append(len(obj.T_x[i]))
+    results['epsU'].append(epsU)
 
-    obj.plot_multiple_models(obj.learned_V, obj.model_list, obj.seed_list,  
-                                        obj.oned_x, obj.oned_y, obj.albert_alphas,
-                                        stage='final')
-    obj.run_validation()
-    print(results)
-    print("Size of C + Number of Initial GP Samples:", NUM_CALIBRATION_POINTS + \
-                                                            NUM_MODEL_INIT_ITERS)
-else:
-    obj.validate_albert_method()
+obj.plot_multiple_models(obj.learned_V, obj.model_list, obj.seed_list,  
+                                    obj.oned_x, obj.oned_y, obj.albert_alphas,
+                                    stage='final')
+obj.run_validation()
+print(results)
+print("Size of C + Number of Initial GP Samples:", NUM_CALIBRATION_POINTS + \
+                                                        NUM_MODEL_INIT_ITERS)
+obj.validate_albert_method()
 
 
