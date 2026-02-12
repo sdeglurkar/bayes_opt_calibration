@@ -497,12 +497,12 @@ def plot_main_gp(learned_V, beta, oned_x, oned_y,
             linewidths=2) 
     criterion = mu + beta * np.sqrt(var) 
     criterion = criterion.reshape(len(oned_y), len(oned_x))
-    plt.contour(oned_x,
-                oned_y,
-                criterion,
-                levels=[0.0],
-                colors="lightblue",
-                linewidths=2)
+    # plt.contour(oned_x,
+    #             oned_y,
+    #             criterion,
+    #             levels=[0.0],
+    #             colors="lightblue",
+    #             linewidths=2)
     criterion = mu - beta * np.sqrt(var)  
     criterion = criterion.reshape(len(oned_y), len(oned_x))
     plt.contour(oned_x,
@@ -520,12 +520,12 @@ def plot_main_gp(learned_V, beta, oned_x, oned_y,
         else:
             raise NotImplementedError
     plt.savefig(fig_name)
-    plt.figure()
-    plt.contourf(oned_x,
-                oned_y,
-                criterion)
-    plt.colorbar()
-    plt.savefig(fig_name_colorbar)
+    # plt.figure()
+    # plt.contourf(oned_x,
+    #             oned_y,
+    #             criterion)
+    # plt.colorbar()
+    # plt.savefig(fig_name_colorbar)
 
 def validate_final_level_set(model, candidates, true_costs, beta):
     print("Running validation of final GP level set")

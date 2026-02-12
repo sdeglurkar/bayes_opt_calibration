@@ -166,12 +166,12 @@ def plot_main_gp(bols, grid, candidates, oned_x, fig_name, fig_name_colorbar, mi
     mu, var = bols.m.predict(candidates, full_cov=False)
     criterion = mu + BETA * np.sqrt(var)  
     criterion = criterion.reshape(len(oned_x), len(oned_x))
-    plt.contour(oned_x,
-                oned_x,
-                criterion,
-                levels=[0.0],
-                colors="lightblue",
-                linewidths=2)
+    # plt.contour(oned_x,
+    #             oned_x,
+    #             criterion,
+    #             levels=[0.0],
+    #             colors="lightblue",
+    #             linewidths=2)
     criterion = mu - BETA * np.sqrt(var)  
     criterion = criterion.reshape(len(oned_x), len(oned_x))
     plt.contour(oned_x,
@@ -271,16 +271,16 @@ if PLOT_D:
     plt.show()
 
 ########################### GET VALIDATION DATASET ###########################
-if os.path.isfile("validation_data.pkl"):
-    with open("validation_data.pkl", "rb") as f:
-        validation_candidates, validation_true_costs = pickle.load(f)
-else:
-    validation_candidates, validation_true_costs = get_ground_truths_for_a_grid(F, discretization=VALIDATION_DISCRETIZATION)
-    with open('validation_data.pkl', 'wb') as f:
-        pickle.dump([validation_candidates, validation_true_costs], f)
-if PLOT_VALIDATION_DATA:
-    plt.scatter(validation_candidates[:, 0], validation_candidates[:, 1])
-    plt.show()
+# if os.path.isfile("validation_data.pkl"):
+#     with open("validation_data.pkl", "rb") as f:
+#         validation_candidates, validation_true_costs = pickle.load(f)
+# else:
+#     validation_candidates, validation_true_costs = get_ground_truths_for_a_grid(F, discretization=VALIDATION_DISCRETIZATION)
+#     with open('validation_data.pkl', 'wb') as f:
+#         pickle.dump([validation_candidates, validation_true_costs], f)
+# if PLOT_VALIDATION_DATA:
+#     plt.scatter(validation_candidates[:, 0], validation_candidates[:, 1])
+#     plt.show()
 
 ########################### FIT INITIAL GAUSSIAN PROCESS ###########################
 mean_function = GPy.core.Mapping(2,1)
@@ -364,6 +364,8 @@ else:
                                                 RNG, to_plot=PLOT_DURING_ACQUISITION)
     plt.figure()
     plt.plot(range(len(bols.num_counterexamples_list)), bols.num_counterexamples_list)
+    plt.xlabel("Iteration")
+    plt.ylabel("Number of Counterexamples")
     plt.savefig(bols.logdir + f'/counterexs.png')
 
     acq_cache = np.array(bols.acq_cache).squeeze()

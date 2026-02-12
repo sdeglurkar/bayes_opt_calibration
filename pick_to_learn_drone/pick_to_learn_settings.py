@@ -20,7 +20,7 @@ EGO_SETTING = [0.0, 0.7, 0.0, 0.0]
 HORIZON = 30
 
 ########################### GAUSSIAN PROCESS SETTINGS ###########################
-INPUT_DIM = 6
+INPUT_DIM = 3
 CONF_THRES = 0.9
 BETA = norm.ppf(CONF_THRES)
 NOISE_VAR = 0.001 
@@ -30,7 +30,7 @@ NUM_MODEL_INIT_ITERS = 40 #10
 MODEL_CANDIDATES_DISCRETIZATION = 0.1
 
 ########################### RANDOM SEED SETTINGS ###########################
-RANDOM_SEED = 0 #100  # If only a single seed is being run
+RANDOM_SEED = 0 #1 #0 #100  # If only a single seed is being run
 RNG = np.random.default_rng(RANDOM_SEED)
 MULTIPLE_SEEDS = False 
 MULTIPLE_SEED_LIST = [0, 1, 3] #[0, 1, 2, 3, 17, 22, 100]
@@ -69,6 +69,7 @@ ALBERT_M = 7
 VALIDATION_DISCRETIZATION = 0.05
 PLOT_DURING_ACQUISITION = False
 LOGDIR = 'drone_model_dir_' + str(INPUT_DIM) + 'D'
+# LOGDIR = 'drone_model_dir_randomscore_' + str(INPUT_DIM) + 'D'
 ERROR_GP_LOGDIR = 'drone_errorgp_dir_' + str(INPUT_DIM) + 'D'
 VALIDATION_LOGDIR = 'drone_pickles_' + str(INPUT_DIM) + 'D'
 

@@ -21,8 +21,8 @@ BETA = norm.ppf(CONF_THRES)
 NUM_BO_INIT_ITERS = 40 #10   # Amount of initial random samples
 NUM_BO_ITERS = 10 #30  # Set to 0 if only random sampling is desired
 USE_MILE = False
-COUNTEREXAMPLE_GUIDED = False 
-ERROR_GP = True 
+COUNTEREXAMPLE_GUIDED = True 
+ERROR_GP = False 
 ERROR_IS_BINARY = False
 ERROR_GP_SCHEDULE = True
 assert not (USE_MILE and COUNTEREXAMPLE_GUIDED and ERROR_GP) # Pick one
@@ -31,7 +31,7 @@ PLOT_DURING_ACQUISITION = False
 SIZE_CALIBRATION_SET = 100
 RANDOM_SEED = 0 #100  # If only a single seed is being run
 RNG = np.random.default_rng(RANDOM_SEED)
-MULTIPLE_SEEDS = True 
+MULTIPLE_SEEDS = False 
 MULTIPLE_SEED_LIST = [0, 1, 2, 3, 17, 22, 100]
 MULTIPLE_RNG_LIST = [np.random.default_rng(seed) for seed in MULTIPLE_SEED_LIST]
 if MULTIPLE_SEEDS: assert len(MULTIPLE_SEED_LIST) > 0
@@ -195,12 +195,12 @@ def plot_main_gp(bols, grid, candidates, oned_x, fig_name, fig_name_colorbar, mi
     mu, var = bols.m.predict(candidates, full_cov=False)
     criterion = mu + BETA * np.sqrt(var)  
     criterion = criterion.reshape(len(oned_x), len(oned_x))
-    plt.contour(oned_x,
-                oned_x,
-                criterion,
-                levels=[0.0],
-                colors="lightblue",
-                linewidths=2)
+    # plt.contour(oned_x,
+    #             oned_x,
+    #             criterion,
+    #             levels=[0.0],
+    #             colors="lightblue",
+    #             linewidths=2)
     criterion = mu - BETA * np.sqrt(var)  
     criterion = criterion.reshape(len(oned_x), len(oned_x))
     plt.contour(oned_x,
@@ -450,6 +450,8 @@ else:
                                         RNG, bo_iters, to_plot=PLOT_DURING_ACQUISITION)
             plt.figure()
             plt.plot(range(bo_iters), bols.num_counterexamples_list)
+            plt.xlabel("Iteration")
+            plt.ylabel("Number of Counterexamples")
             plt.savefig(bols.logdir + f'/counterexs.png')
         elif ERROR_GP:
             bols.optimize_loop_error_gp(error_gp, original_cand_len, candidates, shaped_candidates, 
