@@ -168,9 +168,12 @@ def get_ground_truths_for_a_grid(range_x, ego_setting, adversary_setting,
 
     learned_V = None 
 
+    if len(discretization) == 1:  # One discretization for all dimensions
+        discretization = discretization * np.ones(len(range_x))
+
     if model_dim == 2:
-        oned_x = np.arange(range_x[0][0], range_x[0][1], discretization)
-        oned_y = np.arange(range_x[2][0], range_x[2][1], discretization)
+        oned_x = np.arange(range_x[0][0], range_x[0][1], discretization[0])
+        oned_y = np.arange(range_x[2][0], range_x[2][1], discretization[2])
         xv_orig, yv_orig = np.meshgrid(oned_x, oned_y)
         if get_learned_V: learned_V = np.zeros(xv_orig.shape)
         xv = xv_orig.reshape(-1, 1)
@@ -204,9 +207,9 @@ def get_ground_truths_for_a_grid(range_x, ego_setting, adversary_setting,
                     ]
                     learned_V[ii,jj] = evaluate_V(tmp_point, policy)
     elif model_dim == 3:
-        oned_x = np.arange(range_x[0][0], range_x[0][1], discretization)
-        oned_y = np.arange(range_x[2][0], range_x[2][1], discretization)
-        oned_z = np.arange(range_x[4][0], range_x[4][1], discretization)
+        oned_x = np.arange(range_x[0][0], range_x[0][1], discretization[0])
+        oned_y = np.arange(range_x[2][0], range_x[2][1], discretization[2])
+        oned_z = np.arange(range_x[4][0], range_x[4][1], discretization[4])
         xv_orig, yv_orig, zv_orig = np.meshgrid(oned_x, oned_y, oned_z)
         if get_learned_V: learned_V = np.zeros(xv_orig.shape)
         xv = xv_orig.reshape(-1, 1)
@@ -241,10 +244,10 @@ def get_ground_truths_for_a_grid(range_x, ego_setting, adversary_setting,
                         ]
                         learned_V[ii,jj,kk] = evaluate_V(tmp_point, policy) 
     elif model_dim == 4:
-        oned_x = np.arange(range_x[0][0], range_x[0][1], discretization)
-        oned_y = np.arange(range_x[2][0], range_x[2][1], discretization)
-        oned_z = np.arange(range_x[4][0], range_x[4][1], discretization)
-        oned_vx = np.arange(range_x[1][0], range_x[1][1], discretization)
+        oned_x = np.arange(range_x[0][0], range_x[0][1], discretization[0])
+        oned_y = np.arange(range_x[2][0], range_x[2][1], discretization[2])
+        oned_z = np.arange(range_x[4][0], range_x[4][1], discretization[4])
+        oned_vx = np.arange(range_x[1][0], range_x[1][1], discretization[1])
         xv_orig, yv_orig, zv_orig, vxv_orig = np.meshgrid(oned_x, oned_y, oned_z, oned_vx)
         if get_learned_V: learned_V = np.zeros(xv_orig.shape)
         xv = xv_orig.reshape(-1, 1)
@@ -280,12 +283,12 @@ def get_ground_truths_for_a_grid(range_x, ego_setting, adversary_setting,
                             ]
                             learned_V[ii,jj,kk,ll] = evaluate_V(tmp_point, policy) 
     elif model_dim == 6:
-        oned_x = np.arange(range_x[0][0], range_x[0][1], discretization)
-        oned_y = np.arange(range_x[2][0], range_x[2][1], discretization)
-        oned_z = np.arange(range_x[4][0], range_x[4][1], discretization)
-        oned_vx = np.arange(range_x[1][0], range_x[1][1], discretization)
-        oned_vy = np.arange(range_x[3][0], range_x[3][1], discretization)
-        oned_vz = np.arange(range_x[5][0], range_x[5][1], discretization)
+        oned_x = np.arange(range_x[0][0], range_x[0][1], discretization[0])
+        oned_y = np.arange(range_x[2][0], range_x[2][1], discretization[2])
+        oned_z = np.arange(range_x[4][0], range_x[4][1], discretization[4])
+        oned_vx = np.arange(range_x[1][0], range_x[1][1], discretization[1])
+        oned_vy = np.arange(range_x[3][0], range_x[3][1], discretization[3])
+        oned_vz = np.arange(range_x[5][0], range_x[5][1], discretization[5])
         xv_orig, yv_orig, zv_orig, vxv_orig, vyv_orig, vzv_orig = \
             np.meshgrid(oned_x, oned_y, oned_z, oned_vx, oned_vy, oned_vz)
         if get_learned_V: learned_V = np.zeros(xv_orig.shape)
@@ -324,19 +327,19 @@ def get_ground_truths_for_a_grid(range_x, ego_setting, adversary_setting,
                                     ]
                                     learned_V[ii,jj,kk,ll,mm,nn] = evaluate_V(tmp_point, policy) 
     elif model_dim == 12:
-        oned_x = np.arange(range_x[0][0], range_x[0][1], discretization)
-        oned_y = np.arange(range_x[2][0], range_x[2][1], discretization)
-        oned_z = np.arange(range_x[4][0], range_x[4][1], discretization)
-        oned_vx = np.arange(range_x[1][0], range_x[1][1], discretization)
-        oned_vy = np.arange(range_x[3][0], range_x[3][1], discretization)
-        oned_vz = np.arange(range_x[5][0], range_x[5][1], discretization)
+        oned_x = np.arange(range_x[0][0], range_x[0][1], discretization[0])
+        oned_y = np.arange(range_x[2][0], range_x[2][1], discretization[2])
+        oned_z = np.arange(range_x[4][0], range_x[4][1], discretization[4])
+        oned_vx = np.arange(range_x[1][0], range_x[1][1], discretization[1])
+        oned_vy = np.arange(range_x[3][0], range_x[3][1], discretization[3])
+        oned_vz = np.arange(range_x[5][0], range_x[5][1], discretization[5])
 
-        oned_adx = np.arange(range_x[6][0], range_x[6][1], discretization)
-        oned_ady = np.arange(range_x[8][0], range_x[8][1], discretization)
-        oned_adz = np.arange(range_x[10][0], range_x[10][1], discretization)
-        oned_advx = np.arange(range_x[7][0], range_x[7][1], discretization)
-        oned_advy = np.arange(range_x[9][0], range_x[9][1], discretization)
-        oned_advz = np.arange(range_x[11][0], range_x[11][1], discretization)
+        oned_adx = np.arange(range_x[6][0], range_x[6][1], discretization[6])
+        oned_ady = np.arange(range_x[8][0], range_x[8][1], discretization[8])
+        oned_adz = np.arange(range_x[10][0], range_x[10][1], discretization[10])
+        oned_advx = np.arange(range_x[7][0], range_x[7][1], discretization[7])
+        oned_advy = np.arange(range_x[9][0], range_x[9][1], discretization[9])
+        oned_advz = np.arange(range_x[11][0], range_x[11][1], discretization[11])
         
         xv_orig, yv_orig, zv_orig, vxv_orig, vyv_orig, vzv_orig, adxv_orig, adyv_orig, \
             adzv_orig, advxv_orig, advyv_orig, advzv_orig = \
@@ -413,54 +416,59 @@ def plot_main_gp(learned_V, beta, oned_x, oned_y,
     ego_vx, ego_vy, ego_z, ego_vz = ego_setting
     ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz = adversary_setting
 
+    if len(V_discretization) == 1:  # One discretization for all dimensions
+        V_discretization = V_discretization * np.ones(len(range_x))
+    if len(model_discretization) == 1:  # One discretization for all dimensions
+        model_discretization = model_discretization * np.ones(len(range_x))
+
     # Take a slice of V if more than 2D
     if dim == 2:
         inds = [0, 2]
     elif dim == 3:
         inds = [0, 2, 4]
-        oned_z = np.arange(range_x[4][0], range_x[4][1], V_discretization)
+        oned_z = np.arange(range_x[4][0], range_x[4][1], V_discretization[4])
         index_of_closest_value = np.argmin(np.abs(oned_z - ego_z))
         learned_V = learned_V[:, :, index_of_closest_value]
     elif dim == 4:
         inds = [0, 1, 2, 4]
-        oned_z = np.arange(range_x[4][0], range_x[4][1], V_discretization)
+        oned_z = np.arange(range_x[4][0], range_x[4][1], V_discretization[4])
         index_of_closest_valuez = np.argmin(np.abs(oned_z - ego_z))
-        oned_vx = np.arange(range_x[1][0], range_x[1][1], V_discretization)
+        oned_vx = np.arange(range_x[1][0], range_x[1][1], V_discretization[1])
         index_of_closest_valuevx = np.argmin(np.abs(oned_vx - ego_vx))
         learned_V = learned_V[:, :, index_of_closest_valuez, index_of_closest_valuevx]
     elif dim == 6:
         inds = [0, 1, 2, 3, 4, 5]
-        oned_z = np.arange(range_x[4][0], range_x[4][1], V_discretization)
+        oned_z = np.arange(range_x[4][0], range_x[4][1], V_discretization[4])
         index_of_closest_valuez = np.argmin(np.abs(oned_z - ego_z))
-        oned_vx = np.arange(range_x[1][0], range_x[1][1], V_discretization)
+        oned_vx = np.arange(range_x[1][0], range_x[1][1], V_discretization[1])
         index_of_closest_valuevx = np.argmin(np.abs(oned_vx - ego_vx))
-        oned_vy = np.arange(range_x[3][0], range_x[3][1], V_discretization)
+        oned_vy = np.arange(range_x[3][0], range_x[3][1], V_discretization[3])
         index_of_closest_valuevy = np.argmin(np.abs(oned_vy - ego_vy))
-        oned_vz = np.arange(range_x[5][0], range_x[5][1], V_discretization)
+        oned_vz = np.arange(range_x[5][0], range_x[5][1], V_discretization[5])
         index_of_closest_valuevz = np.argmin(np.abs(oned_vz - ego_vz))
         learned_V = learned_V[:, :, index_of_closest_valuez, index_of_closest_valuevx, \
                             index_of_closest_valuevy, index_of_closest_valuevz]
     elif dim == 12:
         inds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-        oned_z = np.arange(range_x[4][0], range_x[4][1], V_discretization)
+        oned_z = np.arange(range_x[4][0], range_x[4][1], V_discretization[4])
         index_of_closest_valuez = np.argmin(np.abs(oned_z - ego_z))
-        oned_vx = np.arange(range_x[1][0], range_x[1][1], V_discretization)
+        oned_vx = np.arange(range_x[1][0], range_x[1][1], V_discretization[1])
         index_of_closest_valuevx = np.argmin(np.abs(oned_vx - ego_vx))
-        oned_vy = np.arange(range_x[3][0], range_x[3][1], V_discretization)
+        oned_vy = np.arange(range_x[3][0], range_x[3][1], V_discretization[3])
         index_of_closest_valuevy = np.argmin(np.abs(oned_vy - ego_vy))
-        oned_vz = np.arange(range_x[5][0], range_x[5][1], V_discretization)
+        oned_vz = np.arange(range_x[5][0], range_x[5][1], V_discretization[5])
         index_of_closest_valuevz = np.argmin(np.abs(oned_vz - ego_vz))
-        oned_adx = np.arange(range_x[6][0], range_x[6][1], V_discretization)
+        oned_adx = np.arange(range_x[6][0], range_x[6][1], V_discretization[6])
         index_of_closest_valueadx = np.argmin(np.abs(oned_adx - ad_x))
-        oned_ady = np.arange(range_x[8][0], range_x[8][1], V_discretization)
+        oned_ady = np.arange(range_x[8][0], range_x[8][1], V_discretization[8])
         index_of_closest_valueady = np.argmin(np.abs(oned_ady - ad_y))
-        oned_adz = np.arange(range_x[10][0], range_x[10][1], V_discretization)
+        oned_adz = np.arange(range_x[10][0], range_x[10][1], V_discretization[10])
         index_of_closest_valueadz = np.argmin(np.abs(oned_adz - ad_z))
-        oned_advx = np.arange(range_x[7][0], range_x[7][1], V_discretization)
+        oned_advx = np.arange(range_x[7][0], range_x[7][1], V_discretization[7])
         index_of_closest_valueadvx = np.argmin(np.abs(oned_advx - ad_vx))
-        oned_advy = np.arange(range_x[9][0], range_x[9][1], V_discretization)
+        oned_advy = np.arange(range_x[9][0], range_x[9][1], V_discretization[9])
         index_of_closest_valueadvy = np.argmin(np.abs(oned_advy - ad_vy))
-        oned_advz = np.arange(range_x[11][0], range_x[11][1], V_discretization)
+        oned_advz = np.arange(range_x[11][0], range_x[11][1], V_discretization[11])
         index_of_closest_valueadvz = np.argmin(np.abs(oned_advz - ad_vz))
         learned_V = learned_V[:, :, index_of_closest_valuez, index_of_closest_valuevx, \
                             index_of_closest_valuevy, index_of_closest_valuevz,
@@ -479,8 +487,8 @@ def plot_main_gp(learned_V, beta, oned_x, oned_y,
                                     get_learned_V=False)
     mu, var = model.m.predict(full_candidates_for_plotting[:, inds], full_cov=False)
 
-    learnedV_xs = np.arange(range_x[0][0], range_x[0][1], V_discretization)
-    learnedV_ys = np.arange(range_x[2][0], range_x[2][1], V_discretization)
+    learnedV_xs = np.arange(range_x[0][0], range_x[0][1], V_discretization[0])
+    learnedV_ys = np.arange(range_x[2][0], range_x[2][1], V_discretization[2])
 
     plt.figure()
     plt.contour(learnedV_xs,

@@ -251,7 +251,8 @@ class PickToLearn():
         candidates, _, oned_x, oned_y, full_candidates, _ = \
                                                 get_ground_truths_for_a_grid(RANGE_X, 
                                                 EGO_SETTING, ADVERSARY_SETTING, F,
-                                                MODEL_CANDIDATES_DISCRETIZATION, INPUT_DIM, self.policy,
+                                                [MODEL_CANDIDATES_DISCRETIZATION], 
+                                                INPUT_DIM, self.policy,
                                                 get_costs=False)
         return candidates, oned_x, oned_y, full_candidates
 
@@ -295,14 +296,14 @@ class PickToLearn():
             fig_name_colorbar = LOGDIR + f'/gp_{stage}_colorbar{seed}.png'
             plot_main_gp(learned_V, BETA, oned_x, oned_y,  
                 albert_alpha, model, INPUT_DIM, EGO_SETTING, ADVERSARY_SETTING, 
-                RANGE_X, VALIDATION_DISCRETIZATION, MODEL_CANDIDATES_DISCRETIZATION,
+                RANGE_X, VALIDATION_DISCRETIZATION, [MODEL_CANDIDATES_DISCRETIZATION],
                 self.state_expander, fig_name, fig_name_colorbar)
         else:
             fig_name = LOGDIR + f'/gp_{stage}.png'
             fig_name_colorbar = LOGDIR + f'/gp_{stage}_colorbar.png'
             plot_main_gp(learned_V, BETA, oned_x, oned_y,  
                 albert_alpha, model, INPUT_DIM, EGO_SETTING, ADVERSARY_SETTING,
-                RANGE_X, VALIDATION_DISCRETIZATION, MODEL_CANDIDATES_DISCRETIZATION,
+                RANGE_X, VALIDATION_DISCRETIZATION, [MODEL_CANDIDATES_DISCRETIZATION],
                 self.state_expander, fig_name, fig_name_colorbar)                                     
 
     def plot_multiple_models(self, learned_V, model_list, seed_list,  
