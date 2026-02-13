@@ -20,7 +20,7 @@ EGO_SETTING = [0.0, 0.7, 0.0, 0.0]
 HORIZON = 30
 
 ########################### GAUSSIAN PROCESS SETTINGS ###########################
-INPUT_DIM = 3
+INPUT_DIM = 6
 CONF_THRES = 0.9
 BETA = norm.ppf(CONF_THRES)
 NOISE_VAR = 0.001 
@@ -30,9 +30,9 @@ NUM_MODEL_INIT_ITERS = 40 #10
 MODEL_CANDIDATES_DISCRETIZATION = 0.1
 
 ########################### RANDOM SEED SETTINGS ###########################
-RANDOM_SEED = 0 #1 #0 #100  # If only a single seed is being run
+RANDOM_SEED = 0 #100  # If only a single seed is being run
 RNG = np.random.default_rng(RANDOM_SEED)
-MULTIPLE_SEEDS = False 
+MULTIPLE_SEEDS = True 
 MULTIPLE_SEED_LIST = [0, 1, 3] #[0, 1, 2, 3, 17, 22, 100]
 MULTIPLE_RNG_LIST = [np.random.default_rng(seed) for seed in MULTIPLE_SEED_LIST]
 if MULTIPLE_SEEDS: assert len(MULTIPLE_SEED_LIST) > 0
@@ -48,11 +48,12 @@ elif INPUT_DIM == 6:
     DESIRED_N = 10000
 
 ########################### ACQUISITION FN SETTINGS ###########################
-ALPHA = 0.015 #0.01 
+ALPHA = 0.05 #0.015 #0.01 
 DECAY_RATE = 0.95
-TOLERANCE_ALPHA = ALPHA #0.01 
-BETA_CONFORMAL = 0.1  #1e-12
+TOLERANCE_ALPHA = 0.03 #ALPHA #0.01 
+BETA_CONFORMAL = 0.1 #1e-12
 SIZE_C = find_size_of_C(ALPHA, TOLERANCE_ALPHA, BETA_CONFORMAL)
+# print("Number of errors possible:", (1-np.ceil((1-ALPHA) * (SIZE_C + 1))/SIZE_C) * SIZE_C)
 NUM_CALIBRATION_POINTS = 100 if SIZE_C < 100 else SIZE_C #150 #100 #200 
 EHAT_THRESHOLD = 0.3
 MAX_NUM_ACQUIRED_POINTS = 100 #50

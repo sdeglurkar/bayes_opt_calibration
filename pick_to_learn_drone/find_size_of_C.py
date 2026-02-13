@@ -1,3 +1,6 @@
+# Code drawn from Angelopoulos and Bates, "A Gentle Introduction to Conformal 
+# Prediction", 2022
+
 import numpy as np
 from scipy.optimize import brentq 
 from scipy.stats import beta

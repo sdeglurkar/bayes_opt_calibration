@@ -1,3 +1,5 @@
+# Code drawn from Campi and Garatti, "Compression, Generalization, and Learning", 2024
+
 import numpy as np
 from scipy.special import betainc
 
