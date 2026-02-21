@@ -44,8 +44,8 @@ def batched_rollouts_generator(horizon, policy, args):
             actions = np.concatenate((acts[:, :3], np.zeros((num_samples, 3))), axis=1)  # assuming no noise in action for now
             st, rew, done, _, info = envs.step(actions)
             state_trajs[:, :, t+1] = st
-            rewards[:, t] = rew
-            constraints[:, t] = info['constraint']
+            rewards[:, t] = rew * args.gamma**t
+            constraints[:, t] = info['constraint']* args.gamma**t
 
         min_constraints = np.minimum.accumulate(constraints, axis=1)
         reach_avoid_measures = np.max(np.minimum(rewards, min_constraints), axis=1)
