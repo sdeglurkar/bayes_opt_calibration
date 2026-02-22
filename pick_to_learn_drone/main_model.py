@@ -114,7 +114,7 @@ class MainGP:
         return e
 
     def score_function(self, candidate_xs, rng_instance, error_function, 
-                            beta, t, decay_factor=0.9, weights=[1.0, 0.0, 0.001], #weights=[0.0, 0.0, 1.0], #weights=[1.0, 0.0, 0.001],
+                            beta, t, decay_factor=0.9, weights=[1.0, 0.0, 0.001], 
                             tol=1e-5):
         '''
         NOTE: error_function != ehat

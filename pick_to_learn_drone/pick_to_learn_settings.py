@@ -68,6 +68,7 @@ EHAT_THRESHOLD = 0.3
 MAX_NUM_ACQUIRED_POINTS = 100 #50
 assert NUM_CALIBRATION_POINTS >= (1-ALPHA)/ALPHA  # Necessary for conformal prediction
 assert NUM_CALIBRATION_POINTS >= SIZE_C  # Necessary for conformal prediction
+RANDOM_ACQUISITION = False
 NUM_ERROR_GP_POINTS = 50  # Not used
 
 ########################### BASELINE SETTINGS ###########################
