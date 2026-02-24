@@ -11,13 +11,24 @@ from find_size_of_C import *
 from scipy.stats import norm
 
 ########################### DYNAMICS SETTINGS ###########################
-# Give adversary (last 6 dims) the same range as ego (first 6 dims)
+HORIZON = 30
+# RANGE_X = [[-1.0, 1.0], [-1.0, 1.0], [-3.2, 0.0], [0.1, 1.0], [-1.0, 1.0], [-1.0, 1.0],
+#             [-1.0, 1.0], [-1.0, 1.0], [-3.2, 0.0], [0.1, 0.5], [-1.0, 1.0], [-1.0, 1.0]]
+RANGE_X = [[-1.0, 1.0], [-1.0, 1.0], [-2.7, 0.0], [0.1, 1.0], [-1.0, 1.0], [-1.0, 1.0],
+            [-1.0, 1.0], [-1.0, 1.0], [-2.7, 0.0], [0.1, 0.5], [-1.0, 1.0], [-1.0, 1.0]]
+# Basic slice
+# ADVERSARY_SETTING = [0.4, 0.0, -2.2, 0.3, 0.0, 0.0]  # ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz
+# EGO_SETTING = [0.0, 0.7, 0.0, 0.0]  # ego_vx, ego_vy, ego_z, ego_vz
+# New slice 1
+ADVERSARY_SETTING = [0.4, 0.0, -2.2, 0.3, 0.0, 0.0]  # ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz
+EGO_SETTING = [0.0, 0.0, 0.05, -0.5]  # ego_vx, ego_vy, ego_z, ego_vz
+
 # RANGE_X = [[-0.9, 0.9], [0.0, 0.1], [-2.6, 0.0], [0.6, 0.8], [0.0, 0.1], [0.0, 0.1],
 #         [-0.9, 0.9], [0.0, 0.1], [-2.6, 0.0], [0.6, 0.8], [0.0, 0.1], [0.0, 0.1]]
-RANGE_X = [[-0.8, 0.8], [0.0, 0.1], [-2.6, -0.05], [0.6, 0.8], [0.0, 0.1], [0.0, 0.1],
-        [-0.9, 0.9], [0.0, 0.1], [-2.6, 0.0], [0.6, 0.8], [0.0, 0.1], [0.0, 0.1]]
-ADVERSARY_SETTING = [0.4, 0.0, -2.2, 0.3, 0.0, 0.0]  # ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz
-EGO_SETTING = [0.0, 0.7, 0.0, 0.0]  # ego_vx, ego_vy, ego_z, ego_vz
+# RANGE_X = [[-0.8, 0.8], [0.0, 0.1], [-2.6, -0.05], [0.6, 0.8], [0.0, 0.1], [0.0, 0.1],
+#         [-0.9, 0.9], [0.0, 0.1], [-2.6, 0.0], [0.6, 0.8], [0.0, 0.1], [0.0, 0.1]]
+# ADVERSARY_SETTING = [0.4, 0.0, -2.2, 0.3, 0.0, 0.0]  # ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz
+# EGO_SETTING = [0.0, 0.7, 0.0, 0.0]  # ego_vx, ego_vy, ego_z, ego_vz
 # New slice 1
 # ADVERSARY_SETTING = [0.4, 0.0, -2.2, 0.3, 0.08, 0.0]  # ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz
 # EGO_SETTING = [0.0, 0.7, 0.0, 0.0]  # ego_vx, ego_vy, ego_z, ego_vz
@@ -26,8 +37,9 @@ EGO_SETTING = [0.0, 0.7, 0.0, 0.0]  # ego_vx, ego_vy, ego_z, ego_vz
 # EGO_SETTING = [0.0, 0.7, 0.0, 0.0]  # ego_vx, ego_vy, ego_z, ego_vz
 # New slice 3
 # ADVERSARY_SETTING = [0.4, 0.0, -2.2, 0.3, 0.0, 0.0]  # ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz
-# EGO_SETTING = [0.0, 0.0, 0.05, -0.5]  # ego_vx, ego_vy, ego_z, ego_vz
-HORIZON = 30
+# EGO_SETTING = [0.0, 0.0, 0.05, 0.09]  # ego_vx, ego_vy, ego_z, ego_vz
+# HORIZON = 30
+# HORIZON = 30
 
 ########################### GAUSSIAN PROCESS SETTINGS ###########################
 INPUT_DIM = 2
@@ -36,7 +48,7 @@ BETA = norm.ppf(CONF_THRES)
 NOISE_VAR = 0.001 
 COST_THRES = 0.0 
 LENGTH_SCALE = 0.25
-NUM_MODEL_INIT_ITERS = 40 #10
+NUM_MODEL_INIT_ITERS = 50 #40 #10
 MODEL_CANDIDATES_DISCRETIZATION = 0.1
 
 ########################### RANDOM SEED SETTINGS ###########################
@@ -80,16 +92,18 @@ ROBUST_ALBERT_N_SWEEP = [150, 200, 250, 300, 350, 500, 750, 1000]
 ROBUST_ALBERT_ALPHA_SWEEP = [0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 0.75, 0.9, 1.0]
 
 ########################### OTHER SETTINGS ###########################
-# VALIDATION_DISCRETIZATION = 0.05
-VALIDATION_DISCRETIZATION = [0.05, 0.01, 0.05, 0.01, 0.01, 0.01, \
-                            0.05, 0.01, 0.05, 0.01, 0.01, 0.01]
+# VALIDATION_DISCRETIZATION = [0.05, 0.01, 0.05, 0.01, 0.01, 0.01, \
+#                             0.05, 0.01, 0.05, 0.01, 0.01, 0.01]
+VALIDATION_DISCRETIZATION = [0.05, 0.05, 0.05, 0.01, 0.05, 0.05, \
+                            0.05, 0.05, 0.05, 0.01, 0.05, 0.05]
 PLOT_DURING_ACQUISITION = False
-EXPERIMENT_STRING = str(INPUT_DIM) + 'D_basicslice_boundaryacq_N4000_init40_decay0.95thres0.3_alpha0.05_tolalpha0.03'
+EXPERIMENT_STRING = str(INPUT_DIM) + 'D_newslice1_boundaryacq_N4000_init50_decay0.95thres0.3_alpha0.05_tolalpha0.03'
 LOGDIR = 'drone_model_dir_' + EXPERIMENT_STRING
-EXPERIMENT_PICKLE_NAME = 'drone_' + EXPERIMENT_STRING
 os.makedirs(LOGDIR, exist_ok=True)
+EXPERIMENT_PICKLE_NAME = 'drone_' + EXPERIMENT_STRING
 ERROR_GP_LOGDIR = 'drone_errorgp_dir_' + str(INPUT_DIM) + 'D'
-VALIDATION_LOGDIR = 'drone_pickles_' + str(INPUT_DIM) + 'D'
+VALIDATION_LOGDIR = 'drone_pickles_' + EXPERIMENT_STRING
+os.makedirs(VALIDATION_LOGDIR, exist_ok=True)
 
 ########################### GET POLICY ###########################
 ARGS = get_args()
