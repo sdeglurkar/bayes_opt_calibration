@@ -308,7 +308,7 @@ class PickToLearn():
         # model.initial_setup(NUM_MODEL_INIT_ITERS, rng_instance, self.state_expander, 
         #                     to_plot=False)
         model.initial_setup_given_points(initial_gp_candidates, 
-                                initial_gp_true_costs, to_plot=False)
+                                initial_gp_true_costs, seed_val, to_plot=False)
         t1 = time.time()
         print("Done!")
 
@@ -400,7 +400,8 @@ class PickToLearn():
             model.acq_cache = np.append(model.acq_cache, new_x, axis=0)
         
         model.optimize_given_T(np.array(self.T_x[model_idx]), 
-                                np.array(self.T_y[model_idx]))
+                                np.array(self.T_y[model_idx]), 
+                                self.seed_list[model_idx])
         remaining = np.array([elem for elem in np.array(D_x) if \
                     elem not in self.T_x[model_idx]])
         
@@ -530,6 +531,7 @@ class PickToLearn():
         self.method_times[model_idx] += tot_time
 
     def run_validation(self):
+        output = {}
         results_dict = {}
         for i in range(len(self.model_list)):
             model = self.model_list[i]
@@ -560,109 +562,119 @@ class PickToLearn():
 
         print("\nMethod total times and mean", self.method_times, \
                                             np.mean(self.method_times))
+        
+        d = {}
+        output['our_method'] = d
+        d['method_times'] = self.method_times
+        d['avg_tpr'] = np.mean(all_tprs)
+        d['avg_fnr'] = np.mean(all_fnrs)
+        d['avg_fpr'] = np.mean(all_fprs)
+        d['avg_tnr'] = np.mean(all_tnrs)
+        d['results'] = results_dict
+        return output 
+
+    def robust_albert_validation(self, robust_results_dict, robust_albert_arrays, 
+                                seed, seed_index):
+        '''
+        Run validation for 4 different settings of alpha, each with a different 
+        N and epsilon from the robust scenario optimization method.
+        '''
+        # Minimal epsilon overall
+        robust_arr = robust_albert_arrays[seed_index][:, :, 0]  
+        print("\nRobust arr: ", robust_arr)
+        coords = np.unravel_index(np.argmin(robust_arr), robust_arr.shape)
+        robust_alpha1 = ROBUST_ALBERT_ALPHA_SWEEP[coords[1]]
+        robust_N1 = robust_albert_arrays[seed_index][coords[0], coords[1], 1]
+        robust_numviol1 = robust_albert_arrays[seed_index][coords[0], coords[1], 2]
+        robust_eps1 = robust_arr[coords]
+        print("Alpha, N, num violations, and robust eps: ", robust_alpha1, 
+                                        robust_N1, robust_numviol1, robust_eps1)
+        # Minimal epsilon for minimal N
+        new_arr = robust_arr[0, :]
+        ind_for_alpha = np.argmin(new_arr)
+        robust_alpha2 = ROBUST_ALBERT_ALPHA_SWEEP[ind_for_alpha]
+        robust_N2 = robust_albert_arrays[seed_index][0, ind_for_alpha, 1]
+        robust_numviol2 = robust_albert_arrays[seed_index][0, ind_for_alpha, 2]
+        robust_eps2 = new_arr[ind_for_alpha]
+        print("Alpha, N, num violations, and robust eps: ", robust_alpha2, 
+                                        robust_N2, robust_numviol2, robust_eps2)
+        # Minimal epsilon for minimal alpha
+        new_arr = robust_arr[:, 0]
+        ind_for_N = np.argmin(new_arr)
+        robust_alpha3 = ROBUST_ALBERT_ALPHA_SWEEP[0]
+        robust_N3 = robust_albert_arrays[seed_index][ind_for_N, 0, 1]
+        robust_numviol3 = robust_albert_arrays[seed_index][ind_for_N, 0, 2]
+        robust_eps3 = new_arr[ind_for_N]
+        print("Alpha, N, num violations, and robust eps: ", robust_alpha3, 
+                                        robust_N3, robust_numviol3, robust_eps3)
+        # Median epsilon overall
+        flattened_indices = np.argsort(robust_arr, axis=None)
+        mid_index = len(flattened_indices) // 2
+        median_flat_index = flattened_indices[mid_index]
+        coords = np.unravel_index(median_flat_index, robust_arr.shape)
+        robust_alpha4 = ROBUST_ALBERT_ALPHA_SWEEP[coords[1]]
+        robust_N4 = robust_albert_arrays[seed_index][coords[0], coords[1], 1]
+        robust_numviol4 = robust_albert_arrays[seed_index][coords[0], coords[1], 2]
+        robust_eps4 = robust_arr[coords]
+        print("Alpha, N, num violations, and robust eps: ", robust_alpha4, 
+                                        robust_N4, robust_numviol4, robust_eps4)
+
+        tpr1, fpr1, tnr1, fnr1 = validate_albert(self.policy, robust_alpha1, 
+                                            self.validation_candidates, 
+                                            self.validation_true_costs,
+                                            self.state_expander)
+        tpr2, fpr2, tnr2, fnr2 = validate_albert(self.policy, robust_alpha2, 
+                                                self.validation_candidates, 
+                                                self.validation_true_costs,
+                                                self.state_expander)
+        tpr3, fpr3, tnr3, fnr3 = validate_albert(self.policy, robust_alpha3, 
+                                                self.validation_candidates, 
+                                                self.validation_true_costs,
+                                                self.state_expander)
+        tpr4, fpr4, tnr4, fnr4 = validate_albert(self.policy, robust_alpha4, 
+                                                self.validation_candidates, 
+                                                self.validation_true_costs,
+                                                self.state_expander)
+        robust_results_dict[seed] = {'1': [tpr1, fpr1, tnr1, fnr1, \
+                                        robust_alpha1, robust_N1, robust_numviol1,
+                                        robust_eps1],
+                                    '2': [tpr2, fpr2, tnr2, fnr2, \
+                                        robust_alpha2, robust_N2, robust_numviol2,
+                                        robust_eps2],
+                                    '3': [tpr3, fpr3, tnr3, fnr3, \
+                                        robust_alpha3, robust_N3, robust_numviol3,
+                                        robust_eps3],
+                                    '4': [tpr4, fpr4, tnr4, fnr4, \
+                                        robust_alpha4, robust_N4, robust_numviol4,
+                                        robust_eps4]}
 
     def validate_albert_method(self):
-        # Validate both the iterative and robust scenario optimization methods
+        ''' Validate both the iterative and robust scenario optimization methods. '''
+        output = {}
         results_dict = {}
         robust_results_dict = {}
         if MULTIPLE_SEEDS:
             for i in range(len(self.rng_list)):
-                # Minimal epsilon overall
-                robust_arr = self.robust_albert_arrays[i][:, :, 0]  
-                print("\nRobust arr: ", robust_arr)
-                coords = np.unravel_index(np.argmin(robust_arr), robust_arr.shape)
-                robust_alpha1 = ROBUST_ALBERT_ALPHA_SWEEP[coords[1]]
-                robust_N1 = self.robust_albert_arrays[i][coords[0], coords[1], 1]
-                robust_eps1 = robust_arr[coords]
-                print("Alpha, N, and robust eps: ", robust_alpha1, robust_N1, robust_eps1)
-                # Minimal epsilon for minimal N
-                new_arr = robust_arr[0, :]
-                ind_for_alpha = np.argmin(new_arr)
-                robust_alpha2 = ROBUST_ALBERT_ALPHA_SWEEP[ind_for_alpha]
-                robust_N2 = self.robust_albert_arrays[i][0, ind_for_alpha, 1]
-                robust_eps2 = new_arr[ind_for_alpha]
-                print("Alpha, N, and robust eps: ", robust_alpha2, robust_N2, robust_eps2)
-                # Minimal epsilon for minimal alpha
-                new_arr = robust_arr[:, 0]
-                ind_for_N = np.argmin(new_arr)
-                robust_alpha3 = ROBUST_ALBERT_ALPHA_SWEEP[0]
-                robust_N3 = self.robust_albert_arrays[i][ind_for_N, 0, 1]
-                robust_eps3 = new_arr[ind_for_N]
-                print("Alpha, N, and robust eps: ", robust_alpha3, robust_N3, robust_eps3)
-                
                 seed = self.seed_list[i]
+                self.robust_albert_validation(robust_results_dict, 
+                                            self.robust_albert_arrays, 
+                                            seed, i)
+                
                 tpr, fpr, tnr, fnr = validate_albert(self.policy, self.albert_alphas[i], 
                                                         self.validation_candidates, 
                                                         self.validation_true_costs,
                                                         self.state_expander)
                 results_dict[seed] = [tpr, fpr, tnr, fnr]
-
-                tpr1, fpr1, tnr1, fnr1 = validate_albert(self.policy, robust_alpha1, 
-                                                    self.validation_candidates, 
-                                                    self.validation_true_costs,
-                                                    self.state_expander)
-                tpr2, fpr2, tnr2, fnr2 = validate_albert(self.policy, robust_alpha2, 
-                                                        self.validation_candidates, 
-                                                        self.validation_true_costs,
-                                                        self.state_expander)
-                tpr3, fpr3, tnr3, fnr3 = validate_albert(self.policy, robust_alpha3, 
-                                                        self.validation_candidates, 
-                                                        self.validation_true_costs,
-                                                        self.state_expander)
-                robust_results_dict[seed] = {'1': [tpr1, fpr1, tnr1, fnr1, \
-                                                robust_alpha1, robust_N1, robust_eps1],
-                                            '2': [tpr2, fpr2, tnr2, fnr2, \
-                                                robust_alpha2, robust_N2, robust_eps2],
-                                            '3': [tpr3, fpr3, tnr3, fnr3, \
-                                                robust_alpha3, robust_N3, robust_eps3]}
         else:
-            # Minimal epsilon overall
-            robust_arr = self.robust_albert_arrays[0][:, :, 0]  
-            print("\nRobust arr: ", robust_arr)
-            coords = np.unravel_index(np.argmin(robust_arr), robust_arr.shape)
-            robust_alpha1 = ROBUST_ALBERT_ALPHA_SWEEP[coords[1]]
-            robust_N1 = self.robust_albert_arrays[0][coords[0], coords[1], 1]
-            robust_eps1 = robust_arr[coords]
-            print("Alpha, N, and robust eps: ", robust_alpha1, robust_N1, robust_eps1)
-            # Minimal epsilon for minimal N
-            new_arr = robust_arr[0, :]
-            ind_for_alpha = np.argmin(new_arr)
-            robust_alpha2 = ROBUST_ALBERT_ALPHA_SWEEP[ind_for_alpha]
-            robust_N2 = self.robust_albert_arrays[0][0, ind_for_alpha, 1]
-            robust_eps2 = new_arr[ind_for_alpha]
-            print("Alpha, N, and robust eps: ", robust_alpha2, robust_N2, robust_eps2)
-            # Minimal epsilon for minimal alpha
-            new_arr = robust_arr[:, 0]
-            ind_for_N = np.argmin(new_arr)
-            robust_alpha3 = ROBUST_ALBERT_ALPHA_SWEEP[0]
-            robust_N3 = self.robust_albert_arrays[0][ind_for_N, 0, 1]
-            robust_eps3 = new_arr[ind_for_N]
-            print("Alpha, N, and robust eps: ", robust_alpha3, robust_N3, robust_eps3)
-            
+            self.robust_albert_validation(robust_results_dict, 
+                                            self.robust_albert_arrays, 
+                                            RANDOM_SEED, 0)
+
             tpr, fpr, tnr, fnr = validate_albert(self.policy, self.albert_alphas[0], 
                                                     self.validation_candidates, 
                                                     self.validation_true_costs,
                                                     self.state_expander)
             results_dict[RANDOM_SEED] = [tpr, fpr, tnr, fnr]
-
-            tpr1, fpr1, tnr1, fnr1 = validate_albert(self.policy, robust_alpha1, 
-                                                    self.validation_candidates, 
-                                                    self.validation_true_costs,
-                                                    self.state_expander)
-            tpr2, fpr2, tnr2, fnr2 = validate_albert(self.policy, robust_alpha2, 
-                                                    self.validation_candidates, 
-                                                    self.validation_true_costs,
-                                                    self.state_expander)
-            tpr3, fpr3, tnr3, fnr3 = validate_albert(self.policy, robust_alpha3, 
-                                                    self.validation_candidates, 
-                                                    self.validation_true_costs,
-                                                    self.state_expander)
-            robust_results_dict[RANDOM_SEED] = {'1': [tpr1, fpr1, tnr1, fnr1, \
-                                                robust_alpha1, robust_N1, robust_eps1],
-                                                '2': [tpr2, fpr2, tnr2, fnr2, \
-                                                robust_alpha2, robust_N2, robust_eps2],
-                                                '3': [tpr3, fpr3, tnr3, fnr3, \
-                                                robust_alpha3, robust_N3, robust_eps3]}
 
         keys = list(results_dict.keys())
         all_tprs = [results_dict[key][0] for key in keys]
@@ -673,21 +685,27 @@ class PickToLearn():
         robust_tprs_1 = [robust_results_dict[key]['1'][0] for key in keys]
         robust_tprs_2 = [robust_results_dict[key]['2'][0] for key in keys]
         robust_tprs_3 = [robust_results_dict[key]['3'][0] for key in keys]
+        robust_tprs_4 = [robust_results_dict[key]['4'][0] for key in keys]
         robust_fnrs_1 = [robust_results_dict[key]['1'][3] for key in keys]
         robust_fnrs_2 = [robust_results_dict[key]['2'][3] for key in keys]
         robust_fnrs_3 = [robust_results_dict[key]['3'][3] for key in keys]
+        robust_fnrs_4 = [robust_results_dict[key]['4'][3] for key in keys]
         robust_fprs_1 = [robust_results_dict[key]['1'][1] for key in keys]
         robust_fprs_2 = [robust_results_dict[key]['2'][1] for key in keys]
         robust_fprs_3 = [robust_results_dict[key]['3'][1] for key in keys]
+        robust_fprs_4 = [robust_results_dict[key]['4'][1] for key in keys]
         robust_tnrs_1 = [robust_results_dict[key]['1'][2] for key in keys]
         robust_tnrs_2 = [robust_results_dict[key]['2'][2] for key in keys]
         robust_tnrs_3 = [robust_results_dict[key]['3'][2] for key in keys]
+        robust_tnrs_4 = [robust_results_dict[key]['4'][2] for key in keys]
         robust_Ns_1 = [robust_results_dict[key]['1'][5] for key in keys]
         robust_Ns_2 = [robust_results_dict[key]['2'][5] for key in keys]
         robust_Ns_3 = [robust_results_dict[key]['3'][5] for key in keys]
-        robust_epss_1 = [robust_results_dict[key]['1'][6] for key in keys]
-        robust_epss_2 = [robust_results_dict[key]['2'][6] for key in keys]
-        robust_epss_3 = [robust_results_dict[key]['3'][6] for key in keys]
+        robust_Ns_4 = [robust_results_dict[key]['4'][5] for key in keys]
+        robust_epss_1 = [robust_results_dict[key]['1'][7] for key in keys]
+        robust_epss_2 = [robust_results_dict[key]['2'][7] for key in keys]
+        robust_epss_3 = [robust_results_dict[key]['3'][7] for key in keys]
+        robust_epss_4 = [robust_results_dict[key]['4'][7] for key in keys]
 
         print("\nRobust Scenario Opt:")
         print("Minimal epsilon overall")
@@ -711,6 +729,13 @@ class PickToLearn():
         print("Average TNR3 Over All Seeds: ", np.mean(robust_tnrs_3))
         print("Average N Over All Seeds: ", np.mean(robust_Ns_3))
         print("Average eps Over All Seeds: ", np.mean(robust_epss_3))
+        print("Median epsilon overall")
+        print("Average TPR4 Over All Seeds: ", np.mean(robust_tprs_4))
+        print("Average FNR4 Over All Seeds: ", np.mean(robust_fnrs_4))
+        print("Average FPR4 Over All Seeds: ", np.mean(robust_fprs_4))
+        print("Average TNR4 Over All Seeds: ", np.mean(robust_tnrs_4))
+        print("Average N Over All Seeds: ", np.mean(robust_Ns_4))
+        print("Average eps Over All Seeds: ", np.mean(robust_epss_4))
 
         print("\nIterative Method:")
         for key in keys:
@@ -733,3 +758,33 @@ class PickToLearn():
                                             np.mean(self.albert_times))
         print("Albert total num samples and mean", self.albert_num_samples, \
                                             np.mean(self.albert_num_samples))
+        
+
+        d = {}
+        output['albert_itr_method'] = d
+        d['method_times'] = self.albert_times
+        d['num_samples'] = self.albert_num_samples
+        d['alphas'] = self.albert_alphas
+        d['avg_tpr'] = np.mean(all_tprs)
+        d['avg_fnr'] = np.mean(all_fnrs)
+        d['avg_fpr'] = np.mean(all_fprs)
+        d['avg_tnr'] = np.mean(all_tnrs)
+        d['results'] = results_dict
+
+        d = {}
+        output['albert_robust_method'] = d
+        d['overall'] = [np.mean(robust_tprs_1), np.mean(robust_fnrs_1), 
+                np.mean(robust_fprs_1), np.mean(robust_tnrs_1), 
+                np.mean(robust_Ns_1), np.mean(robust_epss_1)]
+        d['min_N'] = [np.mean(robust_tprs_2), np.mean(robust_fnrs_2), 
+                np.mean(robust_fprs_2), np.mean(robust_tnrs_2), 
+                np.mean(robust_Ns_2), np.mean(robust_epss_2)]
+        d['min_alpha'] = [np.mean(robust_tprs_3), np.mean(robust_fnrs_3), 
+                np.mean(robust_fprs_3), np.mean(robust_tnrs_3), 
+                np.mean(robust_Ns_3), np.mean(robust_epss_3)]
+        d['median'] = [np.mean(robust_tprs_4), np.mean(robust_fnrs_4), 
+                np.mean(robust_fprs_4), np.mean(robust_tnrs_4), 
+                np.mean(robust_Ns_4), np.mean(robust_epss_4)]
+        d['results'] = robust_results_dict
+
+        return output 

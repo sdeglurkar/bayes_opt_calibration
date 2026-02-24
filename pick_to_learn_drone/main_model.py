@@ -20,56 +20,57 @@ class MainGP:
         self.logdir = logdir
         self.acq_cache = np.array([[]])
     
-    def initial_setup(self, warmstart_sample, rng_instance, state_expander,
-                    to_plot=False, save=False):
-        # WARNING: Only works for model dim = 2!
-        X_init = []
-        # for i in range(self.input_dim):
-        #     X_i_init = rng_instance.uniform(
-        #         self.range_x[i][0],
-        #         self.range_x[i][1],
-        #         (warmstart_sample,)
-        #     )
-        #     X_init.append(X_i_init)
-        X_i_init = rng_instance.uniform(
-            self.range_x[0][0],
-            self.range_x[0][1],
-            (warmstart_sample,)
-            )
-        X_init.append(X_i_init)
-        X_i_init = rng_instance.uniform(
-            self.range_x[2][0],
-            self.range_x[2][1],
-            (warmstart_sample,)
-            )
-        X_init.append(X_i_init)
+    # def initial_setup(self, warmstart_sample, rng_instance, state_expander,
+    #                 to_plot=False, save=False):
+    #     # WARNING: Only works for model dim = 2!
+    #     X_init = []
+    #     # for i in range(self.input_dim):
+    #     #     X_i_init = rng_instance.uniform(
+    #     #         self.range_x[i][0],
+    #     #         self.range_x[i][1],
+    #     #         (warmstart_sample,)
+    #     #     )
+    #     #     X_init.append(X_i_init)
+    #     X_i_init = rng_instance.uniform(
+    #         self.range_x[0][0],
+    #         self.range_x[0][1],
+    #         (warmstart_sample,)
+    #         )
+    #     X_init.append(X_i_init)
+    #     X_i_init = rng_instance.uniform(
+    #         self.range_x[2][0],
+    #         self.range_x[2][1],
+    #         (warmstart_sample,)
+    #         )
+    #     X_init.append(X_i_init)
 
-        self.X = np.stack(X_init, axis=1)
-        self.Y = self.f(state_expander(self.X)) 
-        if self.init_fn is None:
-            self.m = GPy.models.GPRegression(
-                self.X, 
-                self.Y, 
-                GPy.kern.Matern52(self.input_dim, lengthscale=self.length_scale, ARD=False),
-                noise_var = self.noise_var
-                )
-        else:
-            self.m = GPy.models.GPRegression(
-                self.X, 
-                self.Y, 
-                GPy.kern.Matern52(self.input_dim, lengthscale=self.length_scale, ARD=False),
-                noise_var = self.noise_var,
-                mean_function=self.init_fn
-                )
-        self.m.optimize_restarts(messages=True)
-        if self.do_MILE:
-            self.acq = self.MILE(self.candidates, self.cost_thres, self.conf_thres)
-        if to_plot and self.logdir is not None:
-            self.plot(plot_acq=self.do_MILE)
-        if save:
-            self.save(self.logdir + f'/bols_init')
+    #     self.X = np.stack(X_init, axis=1)
+    #     self.Y = self.f(state_expander(self.X)) 
+    #     if self.init_fn is None:
+    #         self.m = GPy.models.GPRegression(
+    #             self.X, 
+    #             self.Y, 
+    #             GPy.kern.Matern52(self.input_dim, lengthscale=self.length_scale, ARD=False),
+    #             noise_var = self.noise_var
+    #             )
+    #     else:
+    #         self.m = GPy.models.GPRegression(
+    #             self.X, 
+    #             self.Y, 
+    #             GPy.kern.Matern52(self.input_dim, lengthscale=self.length_scale, ARD=False),
+    #             noise_var = self.noise_var,
+    #             mean_function=self.init_fn
+    #             )
+    #     self.m.optimize_restarts(messages=True)
+    #     if self.do_MILE:
+    #         self.acq = self.MILE(self.candidates, self.cost_thres, self.conf_thres)
+    #     if to_plot and self.logdir is not None:
+    #         self.plot(plot_acq=self.do_MILE)
+    #     if save:
+    #         self.save(self.logdir + f'/bols_init')
 
-    def initial_setup_given_points(self, X, Y, to_plot=True, save=False):
+    def initial_setup_given_points(self, X, Y, seed, to_plot=True, save=False):
+        np.random.seed(seed)
         self.X = X
         self.Y = Y
         if self.init_fn is None:
@@ -87,7 +88,8 @@ class MainGP:
                 noise_var = self.noise_var,
                 mean_function=self.init_fn
                 )
-        self.m.optimize_restarts(messages=True)
+        # self.m.optimize_restarts(messages=False)
+        self.m.optimize(messages=False)
         if self.do_MILE:
             self.acq = self.MILE(self.candidates, self.cost_thres, self.conf_thres)
         if to_plot and self.logdir is not None:
@@ -152,8 +154,9 @@ class MainGP:
             error_variances = 0.1 * final_scores
         return final_scores, error_variances, nan_mask
     
-    def optimize_given_T(self, T_x, T_y,
+    def optimize_given_T(self, T_x, T_y, seed,
                                 to_plot=False, plot=True, save=False, iter=0):
+        np.random.seed(seed)
         self.X = np.vstack((self.X, T_x))
         self.Y = np.vstack((self.Y, T_y))
         self.m.set_XY(X=self.X, Y=self.Y)

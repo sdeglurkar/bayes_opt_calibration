@@ -1,6 +1,7 @@
 import sys 
 sys.path.append(
     '/Users/sampada/Documents/Research/Bayesian_Optimization/code/bayes_opt_calibration/')
+import os
 from Lipschitz_Continuous_Reachability_Learning import experiment_script
 from experiment_script.env_utils import get_args, get_env_and_policy
 
@@ -41,8 +42,8 @@ MODEL_CANDIDATES_DISCRETIZATION = 0.1
 ########################### RANDOM SEED SETTINGS ###########################
 RANDOM_SEED = 0 #100  # If only a single seed is being run
 RNG = np.random.default_rng(RANDOM_SEED)
-MULTIPLE_SEEDS = True 
-MULTIPLE_SEED_LIST = [0, 1, 3] #[0, 1, 2, 3, 17, 22, 100]
+MULTIPLE_SEEDS = True
+MULTIPLE_SEED_LIST = [0, 1, 3, 17, 22] #[0, 1, 2, 3, 17, 22, 100]
 MULTIPLE_RNG_LIST = [np.random.default_rng(seed) for seed in MULTIPLE_SEED_LIST]
 if MULTIPLE_SEEDS: assert len(MULTIPLE_SEED_LIST) > 0
 
@@ -83,8 +84,10 @@ ROBUST_ALBERT_ALPHA_SWEEP = [0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 0.75, 0.9, 1.0
 VALIDATION_DISCRETIZATION = [0.05, 0.01, 0.05, 0.01, 0.01, 0.01, \
                             0.05, 0.01, 0.05, 0.01, 0.01, 0.01]
 PLOT_DURING_ACQUISITION = False
-LOGDIR = 'drone_model_dir_' + str(INPUT_DIM) + 'D'
-# LOGDIR = 'drone_model_dir_randomscore_' + str(INPUT_DIM) + 'D'
+EXPERIMENT_STRING = str(INPUT_DIM) + 'D_basicslice_boundaryacq_N4000_init40_decay0.95thres0.3_alpha0.05_tolalpha0.03'
+LOGDIR = 'drone_model_dir_' + EXPERIMENT_STRING
+EXPERIMENT_PICKLE_NAME = 'drone_' + EXPERIMENT_STRING
+os.makedirs(LOGDIR, exist_ok=True)
 ERROR_GP_LOGDIR = 'drone_errorgp_dir_' + str(INPUT_DIM) + 'D'
 VALIDATION_LOGDIR = 'drone_pickles_' + str(INPUT_DIM) + 'D'
 
