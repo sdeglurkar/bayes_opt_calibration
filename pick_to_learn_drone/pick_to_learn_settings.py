@@ -17,11 +17,11 @@ HORIZON = 30
 RANGE_X = [[-1.0, 1.0], [-1.0, 1.0], [-2.7, 0.0], [0.1, 1.0], [-1.0, 1.0], [-1.0, 1.0],
             [-1.0, 1.0], [-1.0, 1.0], [-2.7, 0.0], [0.1, 0.5], [-1.0, 1.0], [-1.0, 1.0]]
 # Basic slice
-# ADVERSARY_SETTING = [0.4, 0.0, -2.2, 0.3, 0.0, 0.0]  # ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz
-# EGO_SETTING = [0.0, 0.7, 0.0, 0.0]  # ego_vx, ego_vy, ego_z, ego_vz
-# New slice 1
 ADVERSARY_SETTING = [0.4, 0.0, -2.2, 0.3, 0.0, 0.0]  # ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz
-EGO_SETTING = [0.0, 0.0, 0.05, -0.5]  # ego_vx, ego_vy, ego_z, ego_vz
+EGO_SETTING = [0.0, 0.7, 0.0, 0.0]  # ego_vx, ego_vy, ego_z, ego_vz
+# New slice 1
+# ADVERSARY_SETTING = [0.4, 0.0, -2.2, 0.3, 0.0, 0.0]  # ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz
+# EGO_SETTING = [0.0, 0.0, 0.05, -0.5]  # ego_vx, ego_vy, ego_z, ego_vz
 
 # RANGE_X = [[-0.9, 0.9], [0.0, 0.1], [-2.6, 0.0], [0.6, 0.8], [0.0, 0.1], [0.0, 0.1],
 #         [-0.9, 0.9], [0.0, 0.1], [-2.6, 0.0], [0.6, 0.8], [0.0, 0.1], [0.0, 0.1]]
@@ -48,7 +48,7 @@ BETA = norm.ppf(CONF_THRES)
 NOISE_VAR = 0.001 
 COST_THRES = 0.0 
 LENGTH_SCALE = 0.25
-NUM_MODEL_INIT_ITERS = 50 #40 #10
+NUM_MODEL_INIT_ITERS = 40 #10
 MODEL_CANDIDATES_DISCRETIZATION = 0.1
 
 ########################### RANDOM SEED SETTINGS ###########################
@@ -81,7 +81,7 @@ EHAT_THRESHOLD = 0.3
 MAX_NUM_ACQUIRED_POINTS = 100 #50
 assert NUM_CALIBRATION_POINTS >= (1-ALPHA)/ALPHA  # Necessary for conformal prediction
 assert NUM_CALIBRATION_POINTS >= SIZE_C  # Necessary for conformal prediction
-RANDOM_ACQUISITION = False
+RANDOM_ACQUISITION = True
 NUM_ERROR_GP_POINTS = 50  # Not used
 
 ########################### BASELINE SETTINGS ###########################
@@ -97,7 +97,7 @@ ROBUST_ALBERT_ALPHA_SWEEP = [0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 0.75, 0.9, 1.0
 VALIDATION_DISCRETIZATION = [0.05, 0.05, 0.05, 0.01, 0.05, 0.05, \
                             0.05, 0.05, 0.05, 0.01, 0.05, 0.05]
 PLOT_DURING_ACQUISITION = False
-EXPERIMENT_STRING = str(INPUT_DIM) + 'D_newslice1_boundaryacq_N4000_init50_decay0.95thres0.3_alpha0.05_tolalpha0.03'
+EXPERIMENT_STRING = str(INPUT_DIM) + 'D_basicslice_randomacq_N4000_init40_decay0.95thres0.3_alpha0.05_tolalpha0.03'
 LOGDIR = 'drone_model_dir_' + EXPERIMENT_STRING
 os.makedirs(LOGDIR, exist_ok=True)
 EXPERIMENT_PICKLE_NAME = 'drone_' + EXPERIMENT_STRING

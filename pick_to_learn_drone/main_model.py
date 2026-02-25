@@ -142,6 +142,8 @@ class MainGP:
         
         dist_from_boundary = dist_from_boundary * decay_factor**t
         rand_nums = rng_instance.uniform(low=0.0, high=1.0, size=dist_from_boundary.shape)
+        if weights[0] == 0.0:  # Random acquisition
+            rand_nums = rand_nums * decay_factor**t
         if error_function is not None:
             errors, error_variances = error_function(candidate_xs)
             errors = errors/sum(errors)  # Normalize
