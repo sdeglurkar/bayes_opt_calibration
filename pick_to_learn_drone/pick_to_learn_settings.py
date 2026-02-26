@@ -42,7 +42,7 @@ EGO_SETTING = [0.0, 0.7, 0.0, 0.0]  # ego_vx, ego_vy, ego_z, ego_vz
 # HORIZON = 30
 
 ########################### GAUSSIAN PROCESS SETTINGS ###########################
-INPUT_DIM = 2
+INPUT_DIM = 4
 CONF_THRES = 0.9
 BETA = norm.ppf(CONF_THRES)
 NOISE_VAR = 0.001 
@@ -81,7 +81,7 @@ EHAT_THRESHOLD = 0.3
 MAX_NUM_ACQUIRED_POINTS = 100 #50
 assert NUM_CALIBRATION_POINTS >= (1-ALPHA)/ALPHA  # Necessary for conformal prediction
 assert NUM_CALIBRATION_POINTS >= SIZE_C  # Necessary for conformal prediction
-RANDOM_ACQUISITION = True
+RANDOM_ACQUISITION = False
 NUM_ERROR_GP_POINTS = 50  # Not used
 
 ########################### BASELINE SETTINGS ###########################
@@ -97,7 +97,7 @@ ROBUST_ALBERT_ALPHA_SWEEP = [0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 0.75, 0.9, 1.0
 VALIDATION_DISCRETIZATION = [0.05, 0.05, 0.05, 0.01, 0.05, 0.05, \
                             0.05, 0.05, 0.05, 0.01, 0.05, 0.05]
 PLOT_DURING_ACQUISITION = False
-EXPERIMENT_STRING = str(INPUT_DIM) + 'D_basicslice_randomacq_N4000_init40_decay0.95thres0.3_alpha0.05_tolalpha0.03'
+EXPERIMENT_STRING = str(INPUT_DIM) + 'D_basicslice_boundaryacq_N8000_init40_decay0.95thres0.3_alpha0.05_tolalpha0.03'
 LOGDIR = 'drone_model_dir_' + EXPERIMENT_STRING
 os.makedirs(LOGDIR, exist_ok=True)
 EXPERIMENT_PICKLE_NAME = 'drone_' + EXPERIMENT_STRING
