@@ -49,7 +49,7 @@ def batched_rollouts_generator(horizon, policy, args):
 
         min_constraints = np.minimum.accumulate(constraints, axis=1)
         reach_avoid_measures = np.max(np.minimum(rewards, min_constraints), axis=1)
-
+        
         # print("Rollouts", state_trajs)
 
         return np.expand_dims(reach_avoid_measures, -1)

@@ -298,10 +298,11 @@ class PickToLearn():
         initial_gp_candidates, initial_gp_true_costs, full_initial_gp_candidates = \
             self.get_initial_gp_dataset(rng_instance)
 
-        mean_function = GPy.core.Mapping(INPUT_DIM,1)
-        mean_function.f = lambda x: evaluate_V_batch(self.state_expander(x), self.policy)
-        mean_function.update_gradients = lambda a,b: 0
-        mean_function.gradients_X = lambda a,b: 0
+        # mean_function = GPy.core.Mapping(INPUT_DIM,1)
+        # mean_function.f = lambda x: evaluate_V_batch(self.state_expander(x), self.policy)
+        # mean_function.update_gradients = lambda a,b: 0
+        # mean_function.gradients_X = lambda a,b: 0
+        mean_function = None
         np.random.seed(seed_val)
         model = MainGP(F, mean_function, INPUT_DIM, candidates, RANGE_X, 
                         NOISE_VAR, COST_THRES, CONF_THRES, LENGTH_SCALE, logdir=LOGDIR)
