@@ -70,15 +70,15 @@ elif INPUT_DIM == 6:
     DESIRED_N = 10000
 
 ########################### ACQUISITION FN SETTINGS ###########################
-ALPHA = 0.2 
+ALPHA = 0.15
 DECAY_RATE = 0.95
-TOLERANCE_ALPHA = 0.08 
+TOLERANCE_ALPHA = 0.05 
 BETA_CONFORMAL = 0.1 #1e-12
 SIZE_C = find_size_of_C(ALPHA, TOLERANCE_ALPHA, BETA_CONFORMAL)
 print("Number of errors possible:", (1-np.ceil((1-ALPHA) * (SIZE_C + 1))/SIZE_C) * SIZE_C)
 NUM_CALIBRATION_POINTS = SIZE_C #100 if SIZE_C < 100 else SIZE_C #150 #100 #200 
 EHAT_THRESHOLD = 0.3
-MAX_NUM_ACQUIRED_POINTS = 100 #50
+MAX_NUM_ACQUIRED_POINTS = 70 
 assert NUM_CALIBRATION_POINTS >= (1-ALPHA)/ALPHA  # Necessary for conformal prediction
 assert NUM_CALIBRATION_POINTS >= SIZE_C  # Necessary for conformal prediction
 RANDOM_ACQUISITION = True
@@ -102,7 +102,7 @@ if INPUT_DIM >= 4:
     VALIDATION_DISCRETIZATION = [0.08, 0.08, 0.08, 0.06, 0.08, 0.08, \
                             0.08, 0.08, 0.08, 0.06, 0.08, 0.08]
 PLOT_DURING_ACQUISITION = False
-EXPERIMENT_STRING = str(INPUT_DIM) + 'D_basicslice_randomacq_N4000_init40_decay0.95thres0.3_alpha0.2_tolalpha0.08'
+EXPERIMENT_STRING = str(INPUT_DIM) + 'D_basicslice_randomacq_N4000_init40_decay0.95thres0.3_alpha0.15_tolalpha0.05'
 LOGDIR = 'drone_model_dir_' + EXPERIMENT_STRING
 os.makedirs(LOGDIR, exist_ok=True)
 EXPERIMENT_PICKLE_NAME = 'drone_' + EXPERIMENT_STRING

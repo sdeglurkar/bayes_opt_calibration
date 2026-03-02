@@ -16,6 +16,9 @@ for i in range(len(obj.model_list)):
     error_gp = obj.error_gp_list[i]
     rng_instance = obj.rng_list[i]
     obj.picktolearn_alg(model, error_gp, rng_instance, i)
+    
+obj.post_alg_all_seeds()
+for i in range(len(obj.model_list)):
     epsL, epsU = find_epsLU(len(obj.T_x[i]), DESIRED_N, DELTA)
     results['T'].append(len(obj.T_x[i]))
     results['epsU'].append(epsU)
@@ -33,6 +36,7 @@ final_dict = out1 | out2
 final_dict = final_dict | results
 final_dict['size_C'] = NUM_CALIBRATION_POINTS
 final_dict['num_model_init_iters'] = NUM_MODEL_INIT_ITERS
+final_dict['num_functional_seeds'] = list(obj.seed_failed).count(False)
 with open(f"{EXPERIMENT_PICKLE_NAME}.pkl", 'wb') as f:
     pickle.dump(final_dict, f)
 

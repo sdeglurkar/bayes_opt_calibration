@@ -71,6 +71,7 @@ class PickToLearn():
             self.albert_num_samples = []
             self.albert_times = []
             self.robust_albert_arrays = []
+            self.seed_failed = [False for _ in self.seed_list]
             for i in range(len(self.rng_list)):
                 print("\nRunning Albert's methods!")
                 rng = self.rng_list[i]
@@ -127,6 +128,7 @@ class PickToLearn():
             self.T_x.append(np.array([[]]))
             self.T_y.append(np.array([[]]))
             self.llambdas.append(np.array([]))
+            self.seed_failed = [False]
 
             print("\nRunning Albert's methods!")
             alpha, total_time, _, total_num_samples, total_num_safety_violations = \
@@ -521,6 +523,9 @@ class PickToLearn():
             
             print("\n\n\n\n\n\nITERATION", it, "\n\n\n\n\n\n\n")
         
+        if len(self.T_x[model_idx]) >= MAX_NUM_ACQUIRED_POINTS:
+            self.seed_failed[model_idx] = True
+
         seed = self.seed_list[model_idx]
         plt.figure()
         plt.plot(range(len(self.llambdas[model_idx])), self.llambdas[model_idx])
@@ -529,6 +534,18 @@ class PickToLearn():
         plt.savefig(LOGDIR + f"/lambdas_{seed}.png")
 
         self.method_times[model_idx] += tot_time
+
+    def post_alg_all_seeds(self):
+        self.seed_failed = np.array(self.seed_failed)
+        self.method_times = np.array(self.method_times)[~self.seed_failed]
+        self.albert_alphas = np.array(self.albert_alphas)[~self.seed_failed]
+        self.albert_times = np.array(self.albert_times)[~self.seed_failed]
+        self.albert_num_samples = np.array(self.albert_num_samples)[~self.seed_failed]
+        self.model_list = np.array(self.model_list)[~self.seed_failed]
+        self.rng_list = np.array(self.rng_list)[~self.seed_failed]
+        self.seed_list = np.array(self.seed_list)[~self.seed_failed]
+        self.T_x = [self.T_x[i] for i in range(len(self.seed_failed)) \
+                    if not self.seed_failed[i]] 
 
     def run_validation(self):
         output = {}
@@ -666,16 +683,17 @@ class PickToLearn():
                                                         self.state_expander)
                 results_dict[seed] = [tpr, fpr, tnr, fnr]
         else:
-            self.robust_albert_validation(robust_results_dict, 
-                                            self.robust_albert_arrays, 
-                                            RANDOM_SEED, 0)
+            if not self.seed_failed[0]:
+                self.robust_albert_validation(robust_results_dict, 
+                                                self.robust_albert_arrays, 
+                                                RANDOM_SEED, 0)
 
-            tpr, fpr, tnr, fnr = validate_albert(self.policy, self.albert_alphas[0], 
-                                                    self.validation_candidates, 
-                                                    self.validation_true_costs,
-                                                    self.state_expander)
-            results_dict[RANDOM_SEED] = [tpr, fpr, tnr, fnr]
-
+                tpr, fpr, tnr, fnr = validate_albert(self.policy, self.albert_alphas[0], 
+                                                        self.validation_candidates, 
+                                                        self.validation_true_costs,
+                                                        self.state_expander)
+                results_dict[RANDOM_SEED] = [tpr, fpr, tnr, fnr]
+            
         keys = list(results_dict.keys())
         all_tprs = [results_dict[key][0] for key in keys]
         all_fnrs = [results_dict[key][3] for key in keys]

@@ -8,11 +8,17 @@ from pick_to_learn_settings import *
 with open(f"{EXPERIMENT_PICKLE_NAME}.pkl", "rb") as f:
     results = pickle.load(f)
 
-print(EXPERIMENT_PICKLE_NAME)
+print("\n---------------\nExperiment name: ", EXPERIMENT_PICKLE_NAME)
 # print(results.keys())
 # print(results['our_method'].keys())
 # print(results['albert_itr_method'].keys())
 # print(results['albert_robust_method'].keys())
+
+if 'num_functional_seeds' in results:
+    print("Number of valid seeds:", results['num_functional_seeds'], "/", \
+            len(MULTIPLE_SEED_LIST), "\n")
+else:
+    print("All seeds successful\n")
 
 robust_albert = results['albert_robust_method']
 avg_num_samples = np.mean(np.array(results['T']) + results['size_C'] + \
