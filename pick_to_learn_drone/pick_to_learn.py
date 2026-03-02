@@ -429,12 +429,13 @@ class PickToLearn():
         e = model.get_error_of_model_for_points(C_x, C_costs, BETA)
         e = e[nan_mask]
         t1 = time.time()
-        self.plot_colormap_points(C_x[nan_mask], e, 
-                                    self.seed_list[model_idx],
-                                    'calib_true_e', stage)
-        self.plot_colormap_points(C_x[nan_mask], final_scores, 
-                                    self.seed_list[model_idx],
-                                    'calib_score_fn', stage)
+        if PLOT_DURING_ACQUISITION:
+            self.plot_colormap_points(C_x[nan_mask], e, 
+                                        self.seed_list[model_idx],
+                                        'calib_true_e', stage)
+            self.plot_colormap_points(C_x[nan_mask], final_scores, 
+                                        self.seed_list[model_idx],
+                                        'calib_score_fn', stage)
         t2 = time.time()
         llambda = get_quantile_for_interval_score_fn(final_scores, error_variances, 
                                                         e, ALPHA)
@@ -448,8 +449,9 @@ class PickToLearn():
         # print("\n\n\n\n\n\n", final_scores, llambda, error_variances, "\n\n\n\n\n\n\n")
         
         t3 = time.time()
-        self.plot_colormap_points(remaining, ehat, self.seed_list[model_idx],
-                                    'score_fn', stage)
+        if PLOT_DURING_ACQUISITION:
+            self.plot_colormap_points(remaining, ehat, self.seed_list[model_idx],
+                                        'score_fn', stage)
 
         # Find the new z
         t4 = time.time()
@@ -517,9 +519,10 @@ class PickToLearn():
                                                 stage=it)
             tot_time += ttime
             it += 1
-            self.plot_model(model, self.learned_V, self.oned_x, self.oned_y, 
-                            self.albert_alphas[model_idx], 
-                            seed=self.seed_list[model_idx], stage=it)
+            if PLOT_DURING_ACQUISITION:
+                self.plot_model(model, self.learned_V, self.oned_x, self.oned_y, 
+                                self.albert_alphas[model_idx], 
+                                seed=self.seed_list[model_idx], stage=it)
             
             print("\n\n\n\n\n\nITERATION", it, "\n\n\n\n\n\n\n")
         
