@@ -8,7 +8,7 @@ from pick_to_learn_settings import *
 with open(f"{EXPERIMENT_PICKLE_NAME}.pkl", "rb") as f:
     results = pickle.load(f)
 
-print("\n--------------------------\nExperiment name: ", EXPERIMENT_PICKLE_NAME)
+print("\n------------------------------------\nExperiment name: ", EXPERIMENT_PICKLE_NAME)
 # print(results.keys())
 # print(results['our_method'].keys())
 # print(results['albert_itr_method'].keys())
