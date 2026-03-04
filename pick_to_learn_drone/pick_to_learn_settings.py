@@ -11,13 +11,6 @@ from find_size_of_C import *
 from scipy.stats import norm
 
 ########################### DYNAMICS SETTINGS ###########################
-HORIZON = 30
-# This is the environment boundary
-# RANGE_X = [[-1.0, 1.0], [-1.0, 1.0], [-3.2, 0.0], [0.1, 1.0], [-1.0, 1.0], [-1.0, 1.0],
-#             [-1.0, 1.0], [-1.0, 1.0], [-3.2, 0.0], [0.1, 0.5], [-1.0, 1.0], [-1.0, 1.0]]
-# Choose a subset
-RANGE_X = [[-1.0, 1.0], [-1.0, 1.0], [-2.7, 0.0], [0.1, 1.0], [-1.0, 1.0], [-1.0, 1.0],
-            [-1.0, 1.0], [-1.0, 1.0], [-2.7, 0.0], [0.1, 0.5], [-1.0, 1.0], [-1.0, 1.0]]
 # Basic slice
 ADVERSARY_SETTING = [0.4, 0.0, -2.2, 0.3, 0.0, 0.0]  # ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz
 EGO_SETTING = [0.0, 0.7, 0.0, 0.0]  # ego_vx, ego_vy, ego_z, ego_vz
@@ -25,14 +18,23 @@ EGO_SETTING = [0.0, 0.7, 0.0, 0.0]  # ego_vx, ego_vy, ego_z, ego_vz
 # ADVERSARY_SETTING = [0.4, 0.0, -2.2, 0.3, 0.0, 0.0]  # ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz
 # EGO_SETTING = [0.0, 0.0, 0.05, -0.5]  # ego_vx, ego_vy, ego_z, ego_vz
 
+# This is the environment boundary
+# RANGE_X = [[-1.0, 1.0], [-1.0, 1.0], [-3.2, 0.0], [0.1, 1.0], [-1.0, 1.0], [-1.0, 1.0],
+#             [-1.0, 1.0], [-1.0, 1.0], [-3.2, 0.0], [0.1, 0.5], [-1.0, 1.0], [-1.0, 1.0]]
+# Choose a subset
+RANGE_X = [[-1.0, 1.0], [-1.0, 1.0], [-2.7, 0.0], [0.1, 1.0], [-1.0, 1.0], [-1.0, 1.0],
+            [-1.0, 1.0], [-1.0, 1.0], [-2.7, 0.0], [0.1, 0.5], [-1.0, 1.0], [-1.0, 1.0]]
+HORIZON = 30
+
 ########################### GAUSSIAN PROCESS SETTINGS ###########################
-INPUT_DIM = 2
+INPUT_DIM = 3
+NUM_MODEL_INIT_ITERS = 40 #10
+
 CONF_THRES = 0.9
 BETA = norm.ppf(CONF_THRES)
 NOISE_VAR = 0.001 
 COST_THRES = 0.0 
 LENGTH_SCALE = 0.25
-NUM_MODEL_INIT_ITERS = 40 #10
 MODEL_CANDIDATES_DISCRETIZATION = 0.1
 
 ########################### RANDOM SEED SETTINGS ###########################
@@ -44,19 +46,22 @@ MULTIPLE_RNG_LIST = [np.random.default_rng(seed) for seed in MULTIPLE_SEED_LIST]
 if MULTIPLE_SEEDS: assert len(MULTIPLE_SEED_LIST) > 0
 
 ########################### PICK-TO-LEARN BOUND SETTINGS ###########################
-DELTA = 1e-4
 DESIRED_N = 4000 #3600 #500 #1000 #3600
+
 if INPUT_DIM <= 3:
     DESIRED_N = 4000
 elif INPUT_DIM == 4:
     DESIRED_N = 8000
 elif INPUT_DIM == 6:
     DESIRED_N = 10000
+DELTA = 1e-4
 
 ########################### ACQUISITION FN SETTINGS ###########################
 ALPHA = 0.05
+TOLERANCE_ALPHA = 0.03
+RANDOM_ACQUISITION = True
+
 DECAY_RATE = 0.95
-TOLERANCE_ALPHA = 0.03 
 BETA_CONFORMAL = 0.1 #1e-12
 SIZE_C = find_size_of_C(ALPHA, TOLERANCE_ALPHA, BETA_CONFORMAL)
 print("Number of errors possible:", (1-np.ceil((1-ALPHA) * (SIZE_C + 1))/SIZE_C) * SIZE_C)
@@ -65,7 +70,6 @@ EHAT_THRESHOLD = 0.3
 MAX_NUM_ACQUIRED_POINTS = 70 
 assert NUM_CALIBRATION_POINTS >= (1-ALPHA)/ALPHA  # Necessary for conformal prediction
 assert NUM_CALIBRATION_POINTS >= SIZE_C  # Necessary for conformal prediction
-RANDOM_ACQUISITION = False
 NUM_ERROR_GP_POINTS = 50  # Not used
 
 ########################### BASELINE SETTINGS ###########################
@@ -78,6 +82,9 @@ ROBUST_ALBERT_ALPHA_SWEEP = [0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 0.75, 0.9, 1.0
 # ROBUST_ALBERT_ALPHA_SWEEP = [0.0, 0.05]
 
 ########################### OTHER SETTINGS ###########################
+EXPERIMENT_STRING = str(INPUT_DIM) + \
+    'D_basicslice_randomacq_N4000_init40_decay0.95thres0.3_alpha0.05_tolalpha0.03'
+
 # VALIDATION_DISCRETIZATION = [0.05, 0.01, 0.05, 0.01, 0.01, 0.01, \
 #                             0.05, 0.01, 0.05, 0.01, 0.01, 0.01]
 VALIDATION_DISCRETIZATION = [0.05, 0.05, 0.05, 0.01, 0.05, 0.05, \
@@ -86,7 +93,6 @@ if INPUT_DIM >= 4:
     VALIDATION_DISCRETIZATION = [0.08, 0.08, 0.08, 0.06, 0.08, 0.08, \
                             0.08, 0.08, 0.08, 0.06, 0.08, 0.08]
 PLOT_DURING_ACQUISITION = False
-EXPERIMENT_STRING = str(INPUT_DIM) + 'D_basicslice_boundaryacq_N4000_init40_decay0.95thres0.3_alpha0.05_tolalpha0.03'
 LOGDIR = 'drone_model_dir_' + EXPERIMENT_STRING
 os.makedirs(LOGDIR, exist_ok=True)
 EXPERIMENT_PICKLE_NAME = 'drone_' + EXPERIMENT_STRING

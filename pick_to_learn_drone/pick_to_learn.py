@@ -277,6 +277,19 @@ class PickToLearn():
                                             F, VALIDATION_DISCRETIZATION, INPUT_DIM,
                                             self.policy,
                                             get_learned_V=True)
+            # # print(validation_candidates, validation_true_costs)
+            # lgdir = 'drone_pickles_' + str(INPUT_DIM) + 'D_basicslice_boundaryacq_N4000_init40_decay0.95thres0.3_alpha0.05_tolalpha0.03'
+            # with open(f"{lgdir}/validation_data.pkl", "rb") as f:
+            #     other_validation_candidates, other_validation_true_costs, _, \
+            #     other_learned_V = \
+            #         pickle.load(f)
+            # differing_inds = np.where(validation_true_costs != other_validation_true_costs)[0]
+            # print(differing_inds)
+            # print(validation_true_costs[differing_inds[0]], other_validation_true_costs[differing_inds[0]])
+            # print(validation_candidates[differing_inds[0]], other_validation_candidates[differing_inds[0]])
+            # print(validation_true_costs[differing_inds[1:4]], other_validation_true_costs[differing_inds[1:4]])
+            # print(validation_candidates[differing_inds[1:4]], other_validation_candidates[differing_inds[1:4]])
+            # exit()
             with open(f'{VALIDATION_LOGDIR}/validation_data.pkl', 'wb') as f:
                 pickle.dump([validation_candidates, validation_true_costs, \
                             full_validation_candidates, learned_V], f)
