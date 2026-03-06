@@ -28,7 +28,7 @@ HORIZON = 30
 
 ########################### GAUSSIAN PROCESS SETTINGS ###########################
 INPUT_DIM = 4
-NUM_MODEL_INIT_ITERS = 40 #10
+NUM_MODEL_INIT_ITERS = 70 #40 #10
 
 CONF_THRES = 0.9
 BETA = norm.ppf(CONF_THRES)
@@ -83,7 +83,7 @@ ROBUST_ALBERT_ALPHA_SWEEP = [0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 0.75, 0.9, 1.0
 
 ########################### OTHER SETTINGS ###########################
 EXPERIMENT_STRING = str(INPUT_DIM) + \
-    'D_basicslice_boundaryacq_N4000_init40_decay0.95thres0.3_alpha0.15_tolalpha0.05'
+    'D_basicslice_boundaryacq_N8000_init40_decay0.95thres0.3_alpha0.15_tolalpha0.05'
 
 # VALIDATION_DISCRETIZATION = [0.05, 0.01, 0.05, 0.01, 0.01, 0.01, \
 #                             0.05, 0.01, 0.05, 0.01, 0.01, 0.01]
