@@ -348,14 +348,14 @@ class PickToLearn():
             plot_main_gp(learned_V, BETA, oned_x, oned_y,  
                 albert_alpha, model, INPUT_DIM, EGO_SETTING, ADVERSARY_SETTING, 
                 RANGE_X, VALIDATION_DISCRETIZATION, [MODEL_CANDIDATES_DISCRETIZATION],
-                self.state_expander, fig_name, fig_name_colorbar)
+                self.state_expander, fig_name, fig_name_colorbar, FONTSIZE)
         else:
             fig_name = LOGDIR + f'/gp_{stage}.png'
             fig_name_colorbar = LOGDIR + f'/gp_{stage}_colorbar.png'
             plot_main_gp(learned_V, BETA, oned_x, oned_y,  
                 albert_alpha, model, INPUT_DIM, EGO_SETTING, ADVERSARY_SETTING,
                 RANGE_X, VALIDATION_DISCRETIZATION, [MODEL_CANDIDATES_DISCRETIZATION],
-                self.state_expander, fig_name, fig_name_colorbar)                                     
+                self.state_expander, fig_name, fig_name_colorbar, FONTSIZE)                                     
 
     def plot_multiple_models(self, learned_V, model_list, seed_list,  
                                 oned_x, oned_y, albert_alphas, stage='init'):
@@ -366,7 +366,7 @@ class PickToLearn():
                             seed, stage)
     
     def plot_colormap_points(self, points, colors, seed, name, stage):
-        plt.figure()
+        plt.figure(figsize=(8,4))
         # Plot x and y only
         if INPUT_DIM == 2 or INPUT_DIM == 3:
             scatter = plt.scatter(points[:, 0], points[:, 1], c=colors, cmap='viridis')
@@ -374,9 +374,13 @@ class PickToLearn():
             scatter = plt.scatter(points[:, 0], points[:, 2], c=colors, cmap='viridis')
         else:
             raise NotImplementedError
-        plt.colorbar(scatter)
+        cbar = plt.colorbar(scatter)
+        cbar.ax.tick_params(labelsize=FONTSIZE)
         fig_name = LOGDIR + f'/{name}_{stage}_{seed}.png'
-        plt.savefig(fig_name)
+        plt.xticks(fontsize=FONTSIZE)
+        plt.yticks(fontsize=FONTSIZE)
+        plt.tight_layout()
+        plt.savefig(fig_name, dpi=1000)
 
     def fit_initial_error_gp(self, X, Y):
         mean_function = None 
@@ -545,23 +549,27 @@ class PickToLearn():
         seed = self.seed_list[model_idx]
         plt.figure()
         plt.plot(range(len(self.llambdas[model_idx])), self.llambdas[model_idx])
-        plt.xlabel("Iterations")
-        plt.ylabel("Lambda Value")
-        plt.savefig(LOGDIR + f"/lambdas_{seed}.png")
+        plt.xlabel("Iterations", fontsize=FONTSIZE)
+        plt.ylabel("Lambda Value", fontsize=FONTSIZE)
+        plt.xticks(fontsize=FONTSIZE)
+        plt.yticks(fontsize=FONTSIZE)
+        plt.tight_layout()
+        plt.savefig(LOGDIR + f"/lambdas_{seed}.png", dpi=1000)
 
         self.method_times[model_idx] += tot_time
 
     def post_alg_all_seeds(self):
-        self.seed_failed = np.array(self.seed_failed)
-        self.method_times = np.array(self.method_times)[~self.seed_failed]
-        self.albert_alphas = np.array(self.albert_alphas)[~self.seed_failed]
-        self.albert_times = np.array(self.albert_times)[~self.seed_failed]
-        self.albert_num_samples = np.array(self.albert_num_samples)[~self.seed_failed]
-        self.model_list = np.array(self.model_list)[~self.seed_failed]
-        self.rng_list = np.array(self.rng_list)[~self.seed_failed]
-        self.seed_list = np.array(self.seed_list)[~self.seed_failed]
-        self.T_x = [self.T_x[i] for i in range(len(self.seed_failed)) \
-                    if not self.seed_failed[i]] 
+        if MULTIPLE_SEEDS:
+            self.seed_failed = np.array(self.seed_failed)
+            self.method_times = np.array(self.method_times)[~self.seed_failed]
+            self.albert_alphas = np.array(self.albert_alphas)[~self.seed_failed]
+            self.albert_times = np.array(self.albert_times)[~self.seed_failed]
+            self.albert_num_samples = np.array(self.albert_num_samples)[~self.seed_failed]
+            self.model_list = np.array(self.model_list)[~self.seed_failed]
+            self.rng_list = np.array(self.rng_list)[~self.seed_failed]
+            self.seed_list = np.array(self.seed_list)[~self.seed_failed]
+            self.T_x = [self.T_x[i] for i in range(len(self.seed_failed)) \
+                        if not self.seed_failed[i]] 
 
     def run_validation(self):
         output = {}

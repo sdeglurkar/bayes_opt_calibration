@@ -12,6 +12,7 @@ from main_model import MainGP
 import gymnasium as gym
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
+import matplotlib.lines as mlines
 import numpy as np
 from tqdm import tqdm
 
@@ -411,7 +412,7 @@ def get_ground_truths_for_a_grid(range_x, ego_setting, adversary_setting,
 def plot_main_gp(learned_V, beta, oned_x, oned_y, 
                 albert_alpha, model, dim, ego_setting, adversary_setting,
                 range_x, V_discretization, model_discretization,
-                state_expander, fig_name, fig_name_colorbar):
+                state_expander, fig_name, fig_name_colorbar, fontsize):
     
     ego_vx, ego_vy, ego_z, ego_vz = ego_setting
     ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz = adversary_setting
@@ -503,6 +504,34 @@ def plot_main_gp(learned_V, beta, oned_x, oned_y,
             levels=[albert_alpha],
             colors="gray",
             linewidths=2) 
+    plt.contour(learnedV_xs,
+            learnedV_ys,
+            learned_V,
+            levels=[0.9],
+            colors="gray",
+            linewidths=2,
+            linestyles='dashed') 
+    plt.contour(learnedV_xs,
+            learnedV_ys,
+            learned_V,
+            levels=[0.75],
+            colors="gray",
+            linewidths=2,
+            linestyles=[(0, (5, 10))]) 
+    plt.contour(learnedV_xs,
+            learnedV_ys,
+            learned_V,
+            levels=[0.0],
+            colors="gray",
+            linewidths=2,
+            linestyles='dotted') 
+    plt.contour(learnedV_xs,
+            learnedV_ys,
+            learned_V,
+            levels=[0.3],
+            colors="gray",
+            linewidths=2,
+            linestyles='dashdot') 
     criterion = mu + beta * np.sqrt(var) 
     criterion = criterion.reshape(len(oned_y), len(oned_x))
     # plt.contour(oned_x,
@@ -527,7 +556,31 @@ def plot_main_gp(learned_V, beta, oned_x, oned_y,
             plt.scatter(acq_points[:, 0], acq_points[:, 2], color='g')
         else:
             raise NotImplementedError
-    plt.savefig(fig_name)
+    plt.xlabel(r"$x_{ego}$", fontsize=fontsize+2)
+    plt.ylabel(r"$y_{ego}$", fontsize=fontsize+2)
+    plt.xticks(fontsize=fontsize)
+    plt.yticks(fontsize=fontsize)
+    
+    legend_lines = [ 
+        mlines.Line2D([], [], color='black', label='Initial Learned Value'),
+        mlines.Line2D([], [], color='gray', label='Lin et al. (2023) Iterative'),
+        mlines.Line2D([], [], color='gray', linestyle='dashed', \
+                label='Lin et al. (2024)\nRobust, Minimal eps'),
+        mlines.Line2D([], [], color='gray', linestyle = (0, (5, 10)), \
+                label='Lin et al. (2024)\nRobust, Minimal N'),
+        mlines.Line2D([], [], color='gray', linestyle='dotted', \
+                label='Lin et al. (2024)\nRobust, Minimal alpha'),
+        mlines.Line2D([], [], color='gray', linestyle='dashdot', \
+                label='Lin et al. (2024)\nRobust, Median eps'),
+        mlines.Line2D([], [], color='blue', label='Our Model')
+        ]
+
+    # plt.legend(handles=legend_lines, fontsize=12, loc='lower left')
+    plt.legend(handles=legend_lines, fontsize=10, loc='upper right')
+
+    plt.tight_layout()
+
+    plt.savefig(fig_name, dpi=1000)
     # plt.figure()
     # plt.contourf(oned_x,
     #             oned_y,

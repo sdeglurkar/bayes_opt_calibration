@@ -20,6 +20,10 @@ if 'num_functional_seeds' in results:
 else:
     print("All seeds successful\n")
 
+# print(results['our_method']['results'])
+# print(results['T'])
+# exit()
+
 robust_albert = results['albert_robust_method']
 avg_num_samples = np.mean(np.array(results['T']) + results['size_C'] + \
                     results['num_model_init_iters'])
@@ -27,13 +31,25 @@ print("Our Method/Albert's Methods, Average Number of Samples", \
         avg_num_samples, np.mean(results['albert_itr_method']['num_samples']), \
         robust_albert['overall'][4], robust_albert['min_N'][4], \
         robust_albert['min_alpha'][4], robust_albert['median'][4])
-print("Our Method/Albert's Methods, Average FNR/FPR", \
-        results['our_method']['avg_fnr'], '/', results['our_method']['avg_fpr'], \
-        results['albert_itr_method']['avg_fnr'], '/', results['albert_itr_method']['avg_fpr'], \
-        robust_albert['overall'][1], '/', robust_albert['overall'][2], \
-        robust_albert['min_N'][1], '/', robust_albert['min_N'][2], \
-        robust_albert['min_alpha'][1], '/', robust_albert['min_alpha'][2], \
-        robust_albert['median'][1], '/', robust_albert['median'][2])
+# print("Our Method/Albert's Methods, Average FNR/FPR", \
+#         results['our_method']['avg_fnr'], '/', results['our_method']['avg_fpr'], \
+#         results['albert_itr_method']['avg_fnr'], '/', results['albert_itr_method']['avg_fpr'], \
+#         robust_albert['overall'][1], '/', robust_albert['overall'][2], \
+#         robust_albert['min_N'][1], '/', robust_albert['min_N'][2], \
+#         robust_albert['min_alpha'][1], '/', robust_albert['min_alpha'][2], \
+#         robust_albert['median'][1], '/', robust_albert['median'][2])
+print("Our Method/Albert's Methods, Average FPR", \
+        results['our_method']['avg_fpr'], results['albert_itr_method']['avg_fpr'], \
+        robust_albert['overall'][2], \
+        robust_albert['min_N'][2], \
+        robust_albert['min_alpha'][2], \
+        robust_albert['median'][2])
+print("Our Method/Albert's Methods, Average FNR", \
+        results['our_method']['avg_fnr'], results['albert_itr_method']['avg_fnr'], \
+        robust_albert['overall'][1], \
+        robust_albert['min_N'][1], \
+        robust_albert['min_alpha'][1], \
+        robust_albert['median'][1])
 
 
 print("Our Method Average Eps Bar", np.mean(results['epsU']))
