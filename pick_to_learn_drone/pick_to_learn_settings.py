@@ -27,7 +27,7 @@ RANGE_X = [[-1.0, 1.0], [-1.0, 1.0], [-2.7, 0.0], [0.1, 1.0], [-1.0, 1.0], [-1.0
 HORIZON = 30
 
 ########################### GAUSSIAN PROCESS SETTINGS ###########################
-INPUT_DIM = 2
+INPUT_DIM = 4
 NUM_MODEL_INIT_ITERS = 40 #10
 
 CONF_THRES = 0.9
@@ -83,7 +83,7 @@ ROBUST_ALBERT_ALPHA_SWEEP = [0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 0.75, 0.9, 1.0
 
 ########################### OTHER SETTINGS ###########################
 EXPERIMENT_STRING = str(INPUT_DIM) + \
-    'D_newslice1_randomacq_N4000_init40_decay0.95thres0.3_alpha0.05_tolalpha0.03'
+    'D_basicslice_boundaryacq_N8000_init40_decay0.95thres0.3_alpha0.15_tolalpha0.05'
 
 # VALIDATION_DISCRETIZATION = [0.05, 0.01, 0.05, 0.01, 0.01, 0.01, \
 #                             0.05, 0.01, 0.05, 0.01, 0.01, 0.01]
