@@ -16,6 +16,8 @@ all_methods = methods + baselines
 num_methods = len(all_methods)
 num_conditions = len(conditions)
 
+COLORS = ['#AA4499', '#CC6677', '#DDCC77', '#88CCEE', '#44AA99', '#117733']
+
 # alpha = 0.05, tol_alpha = 0.03
 samples_2d = np.array([
     [191.1, 290.4, 1000.0, 150.0, 415.0, 400.0],
@@ -93,7 +95,7 @@ successes_4d = np.array([
 # -----------------------------
 # Function to plot Number of Samples
 # -----------------------------
-def plot_samples(samples, dim_name, successes, figsize=(8,5)):
+def plot_samples(samples, dim_name, successes, figname, figsize=(8,5)):
     x = np.arange(len(samples))
     width = 0.12
     
@@ -104,7 +106,8 @@ def plot_samples(samples, dim_name, successes, figsize=(8,5)):
             samples[:, i],
             width,
             label=method,
-            color=f"C{i}" if method != "Actual" else "red",
+            # color=f"C{i}" if method != "Actual" else "red",
+            color=COLORS[i],
             alpha=0.8 if method != "Actual" else 1.0,
             hatch='//' if method=="Actual" else ''
         )
@@ -126,21 +129,24 @@ def plot_samples(samples, dim_name, successes, figsize=(8,5)):
                 label,
                 ha="center",
                 va="bottom",
-                fontsize=8
+                fontsize=FONTSIZE
             )
     ax.set_xticks(x)
-    ax.set_xticklabels(conditions[:len(samples)], rotation=30)
-    ax.set_ylabel("Number of Samples")
-    ax.set_title(f"Number of Samples ({dim_name})")
+    # ax.set_xticklabels(conditions[:len(samples)], rotation=30, fontsize=FONTSIZE)
+    ax.set_xticklabels(conditions[:len(samples)], fontsize=FONTSIZE-3)
+    # ax.set_ylabel("Number of Samples", fontsize=FONTSIZE)
+    ax.tick_params(axis='y', labelsize=FONTSIZE)
+    ax.set_title(f"Number of Samples ({dim_name})", fontsize=FONTSIZE+2)
     # ax.legend(loc='upper center', ncol=num_methods, bbox_to_anchor=(0.5, 1.15))
-    ax.legend(loc='upper right')
+    ax.legend(loc='upper right', fontsize=FONTSIZE-4)
     plt.tight_layout()
-    plt.show()
+    # plt.show()
+    plt.savefig(figname, dpi=1000)
 
 # -----------------------------
 # Function to plot FPR/FNR combined
 # -----------------------------
-def plot_fpr_fnr(fpr, fnr, dim_name, successes, figsize=(8,5)):
+def plot_fpr_fnr(fpr, fnr, dim_name, successes, figname, figsize=(8,5)):
     x = np.arange(len(fpr))
     width = 0.07
     
@@ -153,7 +159,8 @@ def plot_fpr_fnr(fpr, fnr, dim_name, successes, figsize=(8,5)):
             x + (i - num_methods/2)*width*2,
             fpr[:, i],
             width,
-            color=colors[i],
+            # color=colors[i],
+            color=COLORS[i],
             alpha=0.7
         )
         bars_fnr = ax.bar(
@@ -161,7 +168,8 @@ def plot_fpr_fnr(fpr, fnr, dim_name, successes, figsize=(8,5)):
             x + (i - num_methods/2)*width*2 + width,
             fnr[:, i],
             width,
-            color=colors[i],
+            # color=colors[i],
+            color=COLORS[i],
             alpha=0.9,
             hatch='//'
         )
@@ -185,23 +193,26 @@ def plot_fpr_fnr(fpr, fnr, dim_name, successes, figsize=(8,5)):
                 label,
                 ha="center",
                 va="bottom",
-                fontsize=8
+                fontsize=FONTSIZE
             )
     
     ax.set_xticks(x)
-    ax.set_xticklabels(conditions[:len(samples)], rotation=30)
-    ax.set_ylabel("Rate")
-    ax.set_title(f"FPR and FNR ({dim_name})")
+    # ax.set_xticklabels(conditions[:len(samples)], rotation=30, fontsize=FONTSIZE)
+    ax.set_xticklabels(conditions[:len(samples)], fontsize=FONTSIZE-2)
+    # ax.set_ylabel("Rate", fontsize=FONTSIZE)
+    ax.tick_params(axis='y', labelsize=FONTSIZE)
+    ax.set_title(f"FPR and FNR ({dim_name})", fontsize=FONTSIZE+2)
     
     # Custom legend: FPR/FNR per method
     legend_elements = []
     for i, method in enumerate(all_methods):
-        legend_elements.append(Patch(facecolor=colors[i], alpha=0.7, label=f"{method} FPR"))
-        legend_elements.append(Patch(facecolor=colors[i], alpha=0.9, hatch='//', label=f"{method} FNR"))
-    ax.legend(handles=legend_elements, loc='upper right', ncol=2)
+        legend_elements.append(Patch(facecolor=COLORS[i], alpha=0.7, label=f"{method} FPR"))
+        legend_elements.append(Patch(facecolor=COLORS[i], alpha=0.9, hatch='//', label=f"{method} FNR"))
+    ax.legend(handles=legend_elements, loc='upper right', ncol=2, fontsize=FONTSIZE-4)
     
     plt.tight_layout()
-    plt.show()
+    # plt.show()
+    plt.savefig(figname, dpi=1000)
 
 # -----------------------------
 # Plot for all dimensions
@@ -211,9 +222,10 @@ dimensions = [("2D", samples_2d, fpr_2d, fnr_2d, successes_2d),
               ("4D", samples_4d, fpr_4d, fnr_4d, successes_4d)]
 
 for dim_name, samples, fpr, fnr, successes in dimensions:
+    figname = str(dim_name) + "_" 
     if dim_name == "4D":
-        plot_samples(samples, dim_name, successes, (5,5))
-        plot_fpr_fnr(fpr, fnr, dim_name, successes, (6,5))
+        plot_samples(samples, dim_name, successes, figname + "_samples", (6,5))
+        plot_fpr_fnr(fpr, fnr, dim_name, successes, figname + "_fprfnr", (7,5))
     else:
-        plot_samples(samples, dim_name, successes)
-        plot_fpr_fnr(fpr, fnr, dim_name, successes)
+        plot_samples(samples, dim_name, successes, figname + "_samples")
+        plot_fpr_fnr(fpr, fnr, dim_name, successes, figname + "_fprfnr")
