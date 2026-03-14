@@ -12,11 +12,14 @@ from scipy.stats import norm
 
 ########################### DYNAMICS SETTINGS ###########################
 # Basic slice
-ADVERSARY_SETTING = [0.4, 0.0, -2.2, 0.3, 0.0, 0.0]  # ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz
-EGO_SETTING = [0.0, 0.7, 0.0, 0.0]  # ego_vx, ego_vy, ego_z, ego_vz
+# ADVERSARY_SETTING = [0.4, 0.0, -2.2, 0.3, 0.0, 0.0]  # ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz
+# EGO_SETTING = [0.0, 0.7, 0.0, 0.0]  # ego_vx, ego_vy, ego_z, ego_vz
 # New slice 1
 # ADVERSARY_SETTING = [0.4, 0.0, -2.2, 0.3, 0.0, 0.0]  # ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz
 # EGO_SETTING = [0.0, 0.0, 0.05, -0.5]  # ego_vx, ego_vy, ego_z, ego_vz
+# Hardware slice
+ADVERSARY_SETTING = [0.4, 0.0, -2.2, 0.0, 0.5, 0.0]  # ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz
+EGO_SETTING = [0.0, 0.0, 0.5, 0.0]  # ego_vx, ego_vy, ego_z, ego_vz
 
 # This is the environment boundary
 # RANGE_X = [[-1.0, 1.0], [-1.0, 1.0], [-3.2, 0.0], [0.1, 1.0], [-1.0, 1.0], [-1.0, 1.0],
