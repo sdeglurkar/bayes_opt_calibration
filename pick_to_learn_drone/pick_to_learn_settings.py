@@ -27,7 +27,7 @@ RANGE_X = [[-1.0, 1.0], [-1.0, 1.0], [-2.7, 0.0], [0.1, 1.0], [-1.0, 1.0], [-1.0
 HORIZON = 30
 
 ########################### GAUSSIAN PROCESS SETTINGS ###########################
-INPUT_DIM = 4
+INPUT_DIM = 2
 NUM_MODEL_INIT_ITERS = 40 #10
 
 CONF_THRES = 0.9
