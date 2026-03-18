@@ -412,7 +412,8 @@ def get_ground_truths_for_a_grid(range_x, ego_setting, adversary_setting,
 def plot_main_gp(learned_V, beta, oned_x, oned_y, 
                 albert_alpha, model, dim, ego_setting, adversary_setting,
                 range_x, V_discretization, model_discretization,
-                state_expander, fig_name, fig_name_colorbar, fontsize):
+                state_expander, fig_name, fig_name_colorbar, fontsize,
+                transparency_mod):
     
     ego_vx, ego_vy, ego_z, ego_vz = ego_setting
     ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz = adversary_setting
@@ -491,6 +492,11 @@ def plot_main_gp(learned_V, beta, oned_x, oned_y,
     learnedV_xs = np.arange(range_x[0][0], range_x[0][1], V_discretization[0])
     learnedV_ys = np.arange(range_x[2][0], range_x[2][1], V_discretization[2])
 
+    if transparency_mod != 'init' and transparency_mod != 'final':
+        transparency = 1.0 - 0.9**transparency_mod
+    else:
+        transparency = 1.0
+
     plt.figure()
     plt.contour(learnedV_xs,
             learnedV_ys,
@@ -546,12 +552,16 @@ def plot_main_gp(learned_V, beta, oned_x, oned_y,
                 oned_y,
                 criterion,
                 levels=[0.0],
-                colors="blue",
-                linewidths=2)
+                colors="deepskyblue",
+                #linewidths=2,
+                linewidths=3,
+                alpha=transparency)
     if model.acq_cache.size > 0:
         acq_points = np.array(model.acq_cache)
         if dim == 2 or dim == 3:
-            plt.scatter(acq_points[:, 0], acq_points[:, 1], color='g')
+            # plt.scatter(acq_points[:, 0], acq_points[:, 1], color='g')
+            # plt.scatter(acq_points[-1, 0], acq_points[-1, 1], color='orange', s=100)
+            plt.scatter(acq_points[:, 0], acq_points[:, 1], color='orange', s=90)
         elif dim == 4 or dim == 6 or dim == 12:
             plt.scatter(acq_points[:, 0], acq_points[:, 2], color='g')
         else:
@@ -560,19 +570,21 @@ def plot_main_gp(learned_V, beta, oned_x, oned_y,
     plt.ylabel(r"$y_{ego}$", fontsize=fontsize+2)
     plt.xticks(fontsize=fontsize)
     plt.yticks(fontsize=fontsize)
+
+    # plt.xlim(-0.75, 0.85)
     
     legend_lines = [ 
         mlines.Line2D([], [], color='black', label='Initial Learned Value'),
-        mlines.Line2D([], [], color='gray', label='Lin et al. (2023) Iterative'),
+        mlines.Line2D([], [], color='gray', label='LB Iterative'),
         mlines.Line2D([], [], color='gray', linestyle='dashed', \
-                label='Lin et al. (2024)\nRobust, Minimal eps'),
+                label=r'LB Robust, Minimal $\epsilon$'),
         mlines.Line2D([], [], color='gray', linestyle = (0, (5, 10)), \
-                label='Lin et al. (2024)\nRobust, Minimal N'),
+                label=r'LB Robust, Minimal $N$'),
         mlines.Line2D([], [], color='gray', linestyle='dotted', \
-                label='Lin et al. (2024)\nRobust, Minimal alpha'),
+                label=r'LB Robust, Minimal level'),
         mlines.Line2D([], [], color='gray', linestyle='dashdot', \
-                label='Lin et al. (2024)\nRobust, Median eps'),
-        mlines.Line2D([], [], color='blue', label='Our Model')
+                label=r'LB Robust, Median $\epsilon$'),
+        mlines.Line2D([], [], color='deepskyblue', label='Our Model')
         ]
 
     # plt.legend(handles=legend_lines, fontsize=12, loc='lower left')

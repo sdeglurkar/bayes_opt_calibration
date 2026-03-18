@@ -10,7 +10,7 @@ from pick_to_learn_settings import *
 conditions = ["Boundary, Slice 1", "Boundary, Slice 2", \
                 "Random, Slice 1", "Random, Slice 2"]
 baselines = ["LB Iterative",r"LB Robust, Min $\epsilon$",r"LB Robust, Min $N$",\
-            r"LB Robust, Min $\alpha$",r"LB Robust, Median $\epsilon$"]
+            r"LB Robust, Min level",r"LB Robust, Median $\epsilon$"]
 methods = ["Our Method"]
 all_methods = methods + baselines
 num_methods = len(all_methods)

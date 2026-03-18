@@ -348,14 +348,16 @@ class PickToLearn():
             plot_main_gp(learned_V, BETA, oned_x, oned_y,  
                 albert_alpha, model, INPUT_DIM, EGO_SETTING, ADVERSARY_SETTING, 
                 RANGE_X, VALIDATION_DISCRETIZATION, [MODEL_CANDIDATES_DISCRETIZATION],
-                self.state_expander, fig_name, fig_name_colorbar, FONTSIZE)
+                self.state_expander, fig_name, fig_name_colorbar, FONTSIZE,
+                stage)
         else:
             fig_name = LOGDIR + f'/gp_{stage}.png'
             fig_name_colorbar = LOGDIR + f'/gp_{stage}_colorbar.png'
             plot_main_gp(learned_V, BETA, oned_x, oned_y,  
                 albert_alpha, model, INPUT_DIM, EGO_SETTING, ADVERSARY_SETTING,
                 RANGE_X, VALIDATION_DISCRETIZATION, [MODEL_CANDIDATES_DISCRETIZATION],
-                self.state_expander, fig_name, fig_name_colorbar, FONTSIZE)                                     
+                self.state_expander, fig_name, fig_name_colorbar, FONTSIZE,
+                stage)                                     
 
     def plot_multiple_models(self, learned_V, model_list, seed_list,  
                                 oned_x, oned_y, albert_alphas, stage='init'):
