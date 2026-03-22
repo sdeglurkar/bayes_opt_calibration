@@ -587,8 +587,8 @@ def plot_main_gp(learned_V, beta, oned_x, oned_y,
         mlines.Line2D([], [], color='deepskyblue', label='Our Model')
         ]
 
-    # plt.legend(handles=legend_lines, fontsize=12, loc='lower left')
-    plt.legend(handles=legend_lines, fontsize=10, loc='upper right')
+    plt.legend(handles=legend_lines, fontsize=12, loc='lower left')
+    # plt.legend(handles=legend_lines, fontsize=10, loc='upper right')
 
     plt.tight_layout()
 

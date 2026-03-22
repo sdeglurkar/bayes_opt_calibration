@@ -12,11 +12,11 @@ from scipy.stats import norm
 
 ########################### DYNAMICS SETTINGS ###########################
 # Basic slice
-# ADVERSARY_SETTING = [0.4, 0.0, -2.2, 0.3, 0.0, 0.0]  # ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz
-# EGO_SETTING = [0.0, 0.7, 0.0, 0.0]  # ego_vx, ego_vy, ego_z, ego_vz
-# New slice 1
 ADVERSARY_SETTING = [0.4, 0.0, -2.2, 0.3, 0.0, 0.0]  # ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz
-EGO_SETTING = [0.0, 0.0, 0.05, -0.5]  # ego_vx, ego_vy, ego_z, ego_vz
+EGO_SETTING = [0.0, 0.7, 0.0, 0.0]  # ego_vx, ego_vy, ego_z, ego_vz
+# New slice 1
+# ADVERSARY_SETTING = [0.4, 0.0, -2.2, 0.3, 0.0, 0.0]  # ad_x, ad_vx, ad_y, ad_vy, ad_z, ad_vz
+# EGO_SETTING = [0.0, 0.0, 0.05, -0.5]  # ego_vx, ego_vy, ego_z, ego_vz
 
 # This is the environment boundary
 # RANGE_X = [[-1.0, 1.0], [-1.0, 1.0], [-3.2, 0.0], [0.1, 1.0], [-1.0, 1.0], [-1.0, 1.0],
@@ -83,7 +83,7 @@ ROBUST_ALBERT_ALPHA_SWEEP = [0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 0.75, 0.9, 1.0
 
 ########################### OTHER SETTINGS ###########################
 EXPERIMENT_STRING = str(INPUT_DIM) + \
-    'D_VIZ_newslice1_boundaryacq_N4000_init40_decay0.95thres0.3_alpha0.05_tolalpha0.03'
+    'D_VIZ_basicslice_boundaryacq_N4000_init40_decay0.95thres0.3_alpha0.05_tolalpha0.03'
 
 # VALIDATION_DISCRETIZATION = [0.05, 0.01, 0.05, 0.01, 0.01, 0.01, \
 #                             0.05, 0.01, 0.05, 0.01, 0.01, 0.01]
