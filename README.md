@@ -5,13 +5,6 @@ Sampada Deglurkar, Ebonye Smith, Jingqi Li, Claire Tomlin<br>
 University of California, Berkeley<br> 
 University of Texas at Austin
 
-<!--
-## Introduction
-
-This is the official implementation of the paper "Active Calibration of Reachable Sets
-via Approximate Pick-to-Learn".
---> 
-
 ## Setup
 
 In a conda environment, please follow the instructions to install the [Lipschitz Continuous Reachability Learning](https://github.com/jamesjingqili/Lipschitz_Continuous_Reachability_Learning) repo.
@@ -25,50 +18,25 @@ You can install GPy by following the documentation [here](https://github.com/She
 
 ## Running Experiments
 
-
-
-
-<!---
-This is the official implementation of the paper "DeepReach: A Deep Learning Approach to High-Dimensional Reachability".
-
-## Get started
-You can then set up a conda environment with all dependencies like so:
+To run experiments, use the command
 ```
-conda env create -f environment.yml
-conda activate siren
+python pick_to_learn_drone/run_pick_to_learn.py
 ```
 
-## High-Level structure
-The code is organized as follows:
-* dataio.py loads training and testing data.
-* training.py contains a generic training routine.
-* modules.py contains layers and full neural network modules.
-* utils.py contains utility functions.
-* diff_operators.py contains implementations of differential operators.
-* loss_functions.py contains loss functions for the different experiments.
-* ./experiment_scripts/ contains scripts to reproduce experiments in the paper.
-* ./validation_scripts/ contains scripts to reproduce figures in the paper.
-
-## Reproducing experiments
-The directory `experiment_scripts` contains one script per experiment in the paper.
-
-To monitor progress, the training code writes tensorboard summaries into a "summaries"" subdirectory in the logging_root.
-
-To start training DeepReach for air3D, you can run:
+Optionally, add command-line arguments depending on the experiment parameters, for example
 ```
-CUDA_VISIBLE_DEVICES=0 python experiment_scripts/train_hji_air3D.py --experiment_name experiment_1 --minWith target --tMax 1.1 --velocity 0.75 --omega_max 3.0 --angle_alpha 1.2 --num_src_samples 10000 --pretrain --pretrain_iters 10000 --num_epochs 120000 --counter_end 110000
-```
-This will regularly save checkpoints in the directory specified by the rootpath in the script, in a subdirectory "experiment_1". 
-
-We also provide pre-trained checkpoints that can be used to visualize the results in the paper. The checkpoints can be downloaded from 
-```
-https://drive.google.com/file/d/18VkOTctkzuYuyK2GRwQ4wmN92WhdXtvS/view?usp=sharing
-```
-To visualize the trained BRTs, please run:
-```
-CUDA_VISIBLE_DEVICES=0 python validation_scripts/air3D_valfunc_and_BRT.py 
+python pick_to_learn_drone/run_pick_to_learn.py --input_dim=3 --random_active_learning=True
 ```
 
+The full list of command-line arguments is in pick_to_learn_drone/pick_to_learn_settings.py.
+To print out experiment results, use
+```
+python pick_to_learn_drone/run_pick_to_learn.py --experiment_pickle_reader=True
+```
+
+## Citation
+
+<!--
 ## Citation
 If you find our work useful in your research, please cite:
 ```

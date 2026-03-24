@@ -33,7 +33,7 @@ MODEL_CANDIDATES_DISCRETIZATION = 0.1
 
 ########################### RANDOM SEED SETTINGS ###########################
 RANDOM_SEED = 0   # If only a single seed is being run
-MULTIPLE_SEEDS = False
+MULTIPLE_SEEDS = True
 MULTIPLE_SEED_LIST = [0, 1, 2, 3, 17, 22, 24, 27, 31, 100] 
 MULTIPLE_RNG_LIST = [np.random.default_rng(seed) for seed in MULTIPLE_SEED_LIST]
 

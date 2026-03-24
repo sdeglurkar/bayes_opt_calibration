@@ -153,8 +153,6 @@ class PickToLearn():
                                                     self.args.f, 
                                                     self.args.desired_N, self.args.input_dim,
                                                     get_costs=False)
-        N = len(D_candidates)
-        assert N == DESIRED_N
         print("Done!")
         
         return D_candidates, D_true_costs, full_D_candidates
@@ -226,10 +224,11 @@ class PickToLearn():
     def get_candidates_helper(self):
         candidates, _, oned_x, oned_y, full_candidates, _ = \
                                                 get_ground_truths_for_a_grid(RANGE_X, 
-                                                self.args.ego_setting, self.args.adversary_setting, 
+                                                self.args.ego_setting, 
+                                                self.args.adversary_setting, 
                                                 self.args.f,
                                                 [MODEL_CANDIDATES_DISCRETIZATION], 
-                                                INPUT_DIM, self.policy,
+                                                self.args.input_dim, self.policy,
                                                 get_costs=False)
         return candidates, oned_x, oned_y, full_candidates
 
@@ -239,7 +238,7 @@ class PickToLearn():
         initial_gp_candidates, initial_gp_true_costs, full_initial_gp_candidates = \
             self.get_initial_gp_dataset(rng_instance)
 
-        mean_function = GPy.core.Mapping(INPUT_DIM,1)
+        mean_function = GPy.core.Mapping(self.args.input_dim,1)
         mean_function.f = lambda x: evaluate_V_batch(self.state_expander(x), self.policy)
         mean_function.update_gradients = lambda a,b: 0
         mean_function.gradients_X = lambda a,b: 0
@@ -404,7 +403,7 @@ class PickToLearn():
                                     'calib_score_fn', 'init')
         t2 = time.time()
         llambda = get_quantile_for_interval_score_fn(final_scores, error_variances, 
-                                                        e, ALPHA)
+                                                        e, self.args.alpha)
         self.llambdas[model_idx] = np.append(self.llambdas[model_idx], llambda)
         final_scores, error_variances, nan_mask = model.score_function(D_x, 
                                         rng_instance, BETA, t=0,
