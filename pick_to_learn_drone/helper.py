@@ -7,10 +7,7 @@ from Lipschitz_Continuous_Reachability_Learning import experiment_script
 from experiment_script.env_utils import NoResetSyncVectorEnv, find_a_batch, evaluate_V, \
                                         evaluate_V_batch
 
-from main_model import MainGP
-
 import gymnasium as gym
-import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 import numpy as np
@@ -410,7 +407,7 @@ def get_ground_truths_for_a_grid(range_x, ego_setting, adversary_setting,
     return candidates[:, inds], costs, oned_x, oned_y, candidates, learned_V
 
 def plot_main_gp(learned_V, beta, oned_x, oned_y, 
-                albert_alpha, model, dim, ego_setting, adversary_setting,
+                albert_level, model, dim, ego_setting, adversary_setting,
                 range_x, V_discretization, model_discretization,
                 state_expander, fig_name, fig_name_colorbar, fontsize,
                 transparency_mod):
@@ -507,7 +504,7 @@ def plot_main_gp(learned_V, beta, oned_x, oned_y,
     plt.contour(learnedV_xs,
             learnedV_ys,
             learned_V,
-            levels=[albert_alpha],
+            levels=[albert_level],
             colors="gray",
             linewidths=2) 
     plt.contour(learnedV_xs,
@@ -626,10 +623,10 @@ def validate_final_level_set(model, candidates, true_costs, beta):
 
     return tpr, fpr, tnr, fnr
 
-def validate_albert(policy, alpha, candidates, true_costs, state_expander):
+def validate_albert(policy, level, candidates, true_costs, state_expander):
     print("Running validation of Albert's final level set")
     criterion = evaluate_V_batch(state_expander(candidates), policy)
-    criterion = criterion - alpha
+    criterion = criterion - level
     
     assert len(criterion) == len(true_costs)
 

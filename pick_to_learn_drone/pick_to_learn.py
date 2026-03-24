@@ -3,8 +3,7 @@ sys.path.append(
     '/Users/sampada/Documents/Research/Bayesian_Optimization/code/bayes_opt_calibration/')
 from Lipschitz_Continuous_Reachability_Learning import experiment_script
 from experiment_script.env_utils import evaluate_V_batch
-from experiment_script.lin_scenario_opt import solve_iterative_method, visualize_set, \
-                                                find_eps_lemma5, robust_scenario_opt
+from experiment_script.lin_scenario_opt import solve_iterative_method, robust_scenario_opt
 
 from conformal_prediction import get_quantile_for_interval_score_fn
 from error_estimate_model import ErrorGP
@@ -13,7 +12,6 @@ from main_model import MainGP
 from pick_to_learn_settings import *
 
 import GPy
-import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 import os 
@@ -22,8 +20,8 @@ import time
 
 
 class PickToLearn():
-    def __init__(self):
-        self.policy = POLICY
+    def __init__(self, args):
+        self.policy = args.policy
         self.T_x = []
         self.T_y = []
         self.D_x = None 
@@ -43,14 +41,16 @@ class PickToLearn():
         self.rng_list = MULTIPLE_RNG_LIST
         self.seed_list = MULTIPLE_SEED_LIST
         self.llambdas = []
-        self.state_expander = expand_state_based_on_model_dim(EGO_SETTING, 
-                                                        ADVERSARY_SETTING,
-                                                        INPUT_DIM)
+        self.state_expander = expand_state_based_on_model_dim(args.ego_setting, 
+                                                        args.adversary_setting,
+                                                        args.input_dim)
         self.method_times = []
-        if RANDOM_ACQUISITION:
+        if args.random_active_learning:
             self.model_score_fn_weights = [0.0, 0.0, 1.0]
         else:
             self.model_score_fn_weights = [1.0, 0.0, 0.001]
+        
+        self.args = args
 
     def setup(self):
         print("\nSetting up Pick-to-Learn")
@@ -66,8 +66,8 @@ class PickToLearn():
             self.get_candidates_helper()  # May not be very necessary
         t1 = time.time()
 
-        if MULTIPLE_SEEDS:
-            self.albert_alphas = []
+        if self.args.multiple_seeds:
+            self.albert_levels = []
             self.albert_num_samples = []
             self.albert_times = []
             self.robust_albert_arrays = []
@@ -75,25 +75,27 @@ class PickToLearn():
             for i in range(len(self.rng_list)):
                 print("\nRunning Albert's methods!")
                 rng = self.rng_list[i]
-                alpha, total_time, _, total_num_samples, total_num_safety_violations = \
-                    solve_iterative_method(ENV, ALBERT_EPS, ALBERT_DELT, ALBERT_M, 
-                                            HORIZON, self.policy, INPUT_DIM, ARGS, 
-                                            rng, RANGE_X, EGO_SETTING, 
-                                            ADVERSARY_SETTING, alpha_init=-np.inf)
-                self.albert_alphas.append(alpha)
+                level, total_time, _, total_num_samples, total_num_safety_violations = \
+                    solve_iterative_method(self.args.env, self.args.baseline_epsilon, ALBERT_DELT, 
+                                            ALBERT_M, self.args.horizon, self.policy, 
+                                            self.args.input_dim, self.args, rng, RANGE_X, 
+                                            self.args.ego_setting, self.args.adversary_setting, 
+                                            alpha_init=-np.inf)
+                self.albert_levels.append(level)
                 self.albert_num_samples.append(total_num_samples)
                 self.albert_times.append(total_time)
                 robust_arr = np.zeros((len(ROBUST_ALBERT_N_SWEEP), \
-                                        len(ROBUST_ALBERT_ALPHA_SWEEP), 3))
+                                        len(ROBUST_ALBERT_LEVEL_SWEEP), 3))
                 for m in range(len(ROBUST_ALBERT_N_SWEEP)):
-                    for n in range(len(ROBUST_ALBERT_ALPHA_SWEEP)):
+                    for n in range(len(ROBUST_ALBERT_LEVEL_SWEEP)):
                         desired_albert_N = ROBUST_ALBERT_N_SWEEP[m] 
-                        desired_albert_alpha = ROBUST_ALBERT_ALPHA_SWEEP[n]
+                        desired_albert_level = ROBUST_ALBERT_LEVEL_SWEEP[n]
                         robust_eps, num_samples, num_safety_violations = \
                                 robust_scenario_opt(
-                                desired_albert_N, desired_albert_alpha, ALBERT_DELT, 
-                                self.policy, INPUT_DIM, ENV, ARGS, rng, HORIZON, 
-                                RANGE_X, EGO_SETTING, ADVERSARY_SETTING)
+                                desired_albert_N, desired_albert_level, ALBERT_DELT, 
+                                self.policy, self.args.input_dim, self.args.env, self.args, rng, 
+                                self.args.horizon, RANGE_X, self.args.ego_setting, 
+                                self.args.adversary_setting)
                         robust_arr[m, n, :] = np.array([robust_eps, num_samples, \
                                                             num_safety_violations])
                 self.robust_albert_arrays.append(robust_arr)
@@ -131,48 +133,52 @@ class PickToLearn():
             self.seed_failed = [False]
 
             print("\nRunning Albert's methods!")
-            alpha, total_time, _, total_num_samples, total_num_safety_violations = \
-                solve_iterative_method(ENV, ALBERT_EPS, ALBERT_DELT, 
-                                        ALBERT_M, HORIZON, self.policy, 
-                                        INPUT_DIM, ARGS, RNG, RANGE_X,
-                                        EGO_SETTING, ADVERSARY_SETTING,
+            level, total_time, _, total_num_samples, total_num_safety_violations = \
+                solve_iterative_method(self.args.env, self.args.baseline_epsilon, ALBERT_DELT, 
+                                        ALBERT_M, self.args.horizon, self.policy, 
+                                        self.args.input_dim, self.args, self.args.rng, RANGE_X,
+                                        self.args.ego_setting, self.args.adversary_setting,
                                         alpha_init=-np.inf)
-            self.albert_alphas = [alpha]
+            self.albert_levels = [level]
             self.albert_num_samples = [total_num_samples]
             self.albert_times = [total_time]
 
             self.robust_albert_arrays = []
             robust_arr = np.zeros((len(ROBUST_ALBERT_N_SWEEP), \
-                                        len(ROBUST_ALBERT_ALPHA_SWEEP), 3))
+                                        len(ROBUST_ALBERT_LEVEL_SWEEP), 3))
             for m in range(len(ROBUST_ALBERT_N_SWEEP)):
-                for n in range(len(ROBUST_ALBERT_ALPHA_SWEEP)):
+                for n in range(len(ROBUST_ALBERT_LEVEL_SWEEP)):
                     desired_albert_N = ROBUST_ALBERT_N_SWEEP[m] 
-                    desired_albert_alpha = ROBUST_ALBERT_ALPHA_SWEEP[n]
+                    desired_albert_level = ROBUST_ALBERT_LEVEL_SWEEP[n]
                     robust_eps, num_samples, num_safety_violations = \
                             robust_scenario_opt(
-                            desired_albert_N, desired_albert_alpha, ALBERT_DELT, 
-                            self.policy, INPUT_DIM, ENV, ARGS, RNG, HORIZON, 
-                            RANGE_X, EGO_SETTING, ADVERSARY_SETTING)
+                            desired_albert_N, desired_albert_level, ALBERT_DELT, 
+                            self.policy, self.args.input_dim, self.args.env, self.args, 
+                            self.args.rng, 
+                            self.args.horizon, RANGE_X, self.args.ego_setting, 
+                            self.args.adversary_setting)
                     robust_arr[m, n, :] = np.array([robust_eps, num_samples, \
                                                         num_safety_violations])
             self.robust_albert_arrays.append(robust_arr)
             
-            model, ttime1 = self.fit_initial_model(RNG, RANDOM_SEED, self.candidates)
-            self.D_C_list, ttime2 = self.get_D_C_multiple_models([RNG])
+            model, ttime1 = self.fit_initial_model(self.args.rng, self.args.random_seed, \
+                                                    self.candidates)
+            self.D_C_list, ttime2 = self.get_D_C_multiple_models([self.args.rng])
             self.model_list = [model]
             self.method_times = [ttime1 + ttime2[0] + (t1-t0)]
 
         self.plot_multiple_models(self.learned_V, self.model_list, self.seed_list,  
-                                    self.oned_x, self.oned_y, self.albert_alphas)
+                                    self.oned_x, self.oned_y, self.albert_levels)
 
         print("Done with setup!")
 
     def get_D(self, rng_instance):
         print("Obtaining D")
         D_candidates, D_true_costs, full_D_candidates = \
-                get_ground_truths_for_random_points(RANGE_X, EGO_SETTING, 
-                                                    ADVERSARY_SETTING, rng_instance, F, 
-                                                    DESIRED_N, INPUT_DIM,
+                get_ground_truths_for_random_points(RANGE_X, self.args.ego_setting, 
+                                                    self.args.adversary_setting, rng_instance, 
+                                                    self.args.f, 
+                                                    self.args.desired_N, self.args.input_dim,
                                                     get_costs=False)
         # if os.path.isfile(f"drone_pickles_{INPUT_DIM}D/D_{DESIRED_N}.pkl"):
         #     with open(f"drone_pickles_{INPUT_DIM}D/D_{DESIRED_N}.pkl", "rb") as f:
@@ -193,9 +199,10 @@ class PickToLearn():
     def get_error_gp_dataset(self, rng_instance):
         print("Obtaining Error GP Dataset")
         error_gp_candidates, error_gp_true_costs, full_error_gp_candidates = \
-                get_ground_truths_for_random_points(RANGE_X, EGO_SETTING, 
-                                                    ADVERSARY_SETTING, rng_instance, F, 
-                                                    NUM_ERROR_GP_POINTS, INPUT_DIM)
+                get_ground_truths_for_random_points(RANGE_X, self.args.ego_setting, 
+                                                    self.args.adversary_setting, rng_instance, 
+                                                    self.args.f, 
+                                                    NUM_ERROR_GP_POINTS, self.args.input_dim)
 
         # if os.path.isfile(f"drone_pickles_{INPUT_DIM}D/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl"):
         #     with open(f"drone_pickles_{INPUT_DIM}D/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", "rb") as f:
@@ -216,9 +223,11 @@ class PickToLearn():
     def get_initial_gp_dataset(self, rng_instance):
         print("Obtaining Initial GP Dataset")
         initial_gp_candidates, initial_gp_true_costs, full_initial_gp_candidates = \
-            get_ground_truths_for_random_points(RANGE_X, EGO_SETTING, 
-                                                ADVERSARY_SETTING, rng_instance, F, 
-                                                NUM_MODEL_INIT_ITERS, INPUT_DIM)
+            get_ground_truths_for_random_points(RANGE_X, self.args.ego_setting, 
+                                                self.args.adversary_setting, rng_instance, 
+                                                self.args.f, 
+                                                self.args.num_model_init_iters, 
+                                                self.args.input_dim)
         print("Done!")
 
         return initial_gp_candidates, initial_gp_true_costs, full_initial_gp_candidates
@@ -226,10 +235,11 @@ class PickToLearn():
     def get_acquisition_fn_calib_dataset(self, rng_instance):
         print("Obtaining C")
         acq_calib_candidates, acq_calib_true_costs, full_acq_calib_candidates = \
-                get_ground_truths_for_random_points(RANGE_X, EGO_SETTING, 
-                                                    ADVERSARY_SETTING, rng_instance, F, 
-                                                    NUM_CALIBRATION_POINTS,
-                                                    INPUT_DIM)
+                get_ground_truths_for_random_points(RANGE_X, self.args.ego_setting, 
+                                                    self.args.adversary_setting, rng_instance, 
+                                                    self.args.f, 
+                                                    self.args.num_calibration_points,
+                                                    self.args.input_dim)
         # if os.path.isfile(f"drone_pickles_{INPUT_DIM}D/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl"):
         #     with open(f"drone_pickles_{INPUT_DIM}D/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl", "rb") as f:
         #         acq_calib_candidates, acq_calib_true_costs, full_acq_calib_candidates = \
@@ -265,16 +275,18 @@ class PickToLearn():
 
     def get_validation_dataset(self):
         print("Obtaining Validation Dataset")
-        if os.path.isfile(f"{VALIDATION_LOGDIR}/validation_data.pkl"):
-            with open(f"{VALIDATION_LOGDIR}/validation_data.pkl", "rb") as f:
+        if os.path.isfile(f"{self.args.picktolearn_validation_logdir}/validation_data.pkl"):
+            with open(f"{self.args.picktolearn_validation_logdir}/validation_data.pkl", "rb") as f:
                 validation_candidates, validation_true_costs, full_validation_candidates, \
                 learned_V = \
                     pickle.load(f)
         else:
             validation_candidates, validation_true_costs, _, _, full_validation_candidates, \
             learned_V = \
-                get_ground_truths_for_a_grid(RANGE_X, EGO_SETTING, ADVERSARY_SETTING, 
-                                            F, VALIDATION_DISCRETIZATION, INPUT_DIM,
+                get_ground_truths_for_a_grid(RANGE_X, self.args.ego_setting, 
+                                            self.args.adversary_setting, 
+                                            self.args.f, VALIDATION_DISCRETIZATION, 
+                                            self.args.input_dim,
                                             self.policy,
                                             get_learned_V=True)
             # # print(validation_candidates, validation_true_costs)
@@ -290,7 +302,7 @@ class PickToLearn():
             # print(validation_true_costs[differing_inds[1:4]], other_validation_true_costs[differing_inds[1:4]])
             # print(validation_candidates[differing_inds[1:4]], other_validation_candidates[differing_inds[1:4]])
             # exit()
-            with open(f'{VALIDATION_LOGDIR}/validation_data.pkl', 'wb') as f:
+            with open(f'{self.args.picktolearn_validation_logdir}/validation_data.pkl', 'wb') as f:
                 pickle.dump([validation_candidates, validation_true_costs, \
                             full_validation_candidates, learned_V], f)
         print("Done!")
@@ -301,7 +313,8 @@ class PickToLearn():
     def get_candidates_helper(self):
         candidates, _, oned_x, oned_y, full_candidates, _ = \
                                                 get_ground_truths_for_a_grid(RANGE_X, 
-                                                EGO_SETTING, ADVERSARY_SETTING, F,
+                                                self.args.ego_setting, self.args.adversary_setting, 
+                                                self.args.f,
                                                 [MODEL_CANDIDATES_DISCRETIZATION], 
                                                 INPUT_DIM, self.policy,
                                                 get_costs=False)
@@ -318,8 +331,9 @@ class PickToLearn():
         mean_function.update_gradients = lambda a,b: 0
         mean_function.gradients_X = lambda a,b: 0
         np.random.seed(seed_val)
-        model = MainGP(F, mean_function, INPUT_DIM, candidates, RANGE_X, 
-                        NOISE_VAR, COST_THRES, CONF_THRES, LENGTH_SCALE, logdir=LOGDIR)
+        model = MainGP(self.args.f, mean_function, self.args.input_dim, candidates, RANGE_X, 
+                        NOISE_VAR, COST_THRES, CONF_THRES, LENGTH_SCALE, 
+                        logdir=self.args.picktolearn_logdir)
         # model.initial_setup(NUM_MODEL_INIT_ITERS, rng_instance, self.state_expander, 
         #                     to_plot=False)
         model.initial_setup_given_points(initial_gp_candidates, 
@@ -340,45 +354,47 @@ class PickToLearn():
             times.append(ttime)
         return model_list, times
 
-    def plot_model(self, model, learned_V, oned_x, oned_y, albert_alpha,
+    def plot_model(self, model, learned_V, oned_x, oned_y, albert_level,
                     seed=None, stage='init'):
         if seed is not None:
-            fig_name = LOGDIR + f'/gp_{stage}_{seed}.png'
-            fig_name_colorbar = LOGDIR + f'/gp_{stage}_colorbar{seed}.png'
+            fig_name = self.args.picktolearn_logdir + f'/gp_{stage}_{seed}.png'
+            fig_name_colorbar = self.args.picktolearn_logdir + f'/gp_{stage}_colorbar{seed}.png'
             plot_main_gp(learned_V, BETA, oned_x, oned_y,  
-                albert_alpha, model, INPUT_DIM, EGO_SETTING, ADVERSARY_SETTING, 
+                albert_level, model, self.args.input_dim, self.args.ego_setting, 
+                self.args.adversary_setting, 
                 RANGE_X, VALIDATION_DISCRETIZATION, [MODEL_CANDIDATES_DISCRETIZATION],
                 self.state_expander, fig_name, fig_name_colorbar, FONTSIZE,
                 stage)
         else:
-            fig_name = LOGDIR + f'/gp_{stage}.png'
-            fig_name_colorbar = LOGDIR + f'/gp_{stage}_colorbar.png'
+            fig_name = self.args.picktolearn_logdir + f'/gp_{stage}.png'
+            fig_name_colorbar = self.args.picktolearn_logdir + f'/gp_{stage}_colorbar.png'
             plot_main_gp(learned_V, BETA, oned_x, oned_y,  
-                albert_alpha, model, INPUT_DIM, EGO_SETTING, ADVERSARY_SETTING,
+                albert_level, model, self.args.input_dim, self.args.ego_setting, 
+                self.args.adversary_setting,
                 RANGE_X, VALIDATION_DISCRETIZATION, [MODEL_CANDIDATES_DISCRETIZATION],
                 self.state_expander, fig_name, fig_name_colorbar, FONTSIZE,
                 stage)                                     
 
     def plot_multiple_models(self, learned_V, model_list, seed_list,  
-                                oned_x, oned_y, albert_alphas, stage='init'):
+                                oned_x, oned_y, albert_levels, stage='init'):
         for i in range(len(model_list)):
             model = model_list[i]
             seed = seed_list[i]
-            self.plot_model(model, learned_V, oned_x, oned_y, albert_alphas[i], 
+            self.plot_model(model, learned_V, oned_x, oned_y, albert_levels[i], 
                             seed, stage)
     
     def plot_colormap_points(self, points, colors, seed, name, stage):
         plt.figure(figsize=(8,4))
         # Plot x and y only
-        if INPUT_DIM == 2 or INPUT_DIM == 3:
+        if self.args.input_dim == 2 or self.args.input_dim == 3:
             scatter = plt.scatter(points[:, 0], points[:, 1], c=colors, cmap='viridis')
-        elif INPUT_DIM == 4 or INPUT_DIM == 6 or INPUT_DIM == 12:
+        elif self.args.input_dim == 4 or self.args.input_dim == 6 or self.args.input_dim == 12:
             scatter = plt.scatter(points[:, 0], points[:, 2], c=colors, cmap='viridis')
         else:
             raise NotImplementedError
         cbar = plt.colorbar(scatter)
         cbar.ax.tick_params(labelsize=FONTSIZE)
-        fig_name = LOGDIR + f'/{name}_{stage}_{seed}.png'
+        fig_name = self.args.picktolearn_logdir + f'/{name}_{stage}_{seed}.png'
         plt.xticks(fontsize=FONTSIZE)
         plt.yticks(fontsize=FONTSIZE)
         plt.tight_layout()
@@ -442,13 +458,13 @@ class PickToLearn():
         error_function = None
         final_scores, error_variances, nan_mask = model.score_function(C_x, 
                                         rng_instance, error_function, BETA, t=stage,
-                                        decay_factor=DECAY_RATE,
+                                        decay_factor=self.args.decay_rate,
                                         weights=self.model_score_fn_weights)
         # Run conformal prediction to get ehat
         e = model.get_error_of_model_for_points(C_x, C_costs, BETA)
         e = e[nan_mask]
         t1 = time.time()
-        if PLOT_DURING_ACQUISITION:
+        if self.args.plot_during:
             self.plot_colormap_points(C_x[nan_mask], e, 
                                         self.seed_list[model_idx],
                                         'calib_true_e', stage)
@@ -457,18 +473,18 @@ class PickToLearn():
                                         'calib_score_fn', stage)
         t2 = time.time()
         llambda = get_quantile_for_interval_score_fn(final_scores, error_variances, 
-                                                        e, ALPHA)
+                                                        e, self.args.alpha)
         self.llambdas[model_idx] = np.append(self.llambdas[model_idx], llambda)
         final_scores, error_variances, nan_mask = model.score_function(remaining, 
                                         rng_instance, error_function, BETA, t=stage,
-                                        decay_factor=DECAY_RATE,
+                                        decay_factor=self.args.decay_rate,
                                         weights=self.model_score_fn_weights)
         ehat = final_scores + llambda * error_variances
         remaining = remaining[nan_mask]
         # print("\n\n\n\n\n\n", final_scores, llambda, error_variances, "\n\n\n\n\n\n\n")
         
         t3 = time.time()
-        if PLOT_DURING_ACQUISITION:
+        if self.args.plot_during:
             self.plot_colormap_points(remaining, ehat, self.seed_list[model_idx],
                                         'score_fn', stage)
 
@@ -495,7 +511,7 @@ class PickToLearn():
         # Get a_{h,eta}(z) and u_{h,eta}(z)
         final_scores, error_variances, nan_mask = model.score_function(C_x, 
                                         rng_instance, error_function, BETA, t=0,
-                                        decay_factor=DECAY_RATE,
+                                        decay_factor=self.args.decay_rate,
                                         weights=self.model_score_fn_weights)
         # Run conformal prediction to get ehat
         e = model.get_error_of_model_for_points(C_x, C_costs, BETA)
@@ -513,7 +529,7 @@ class PickToLearn():
         self.llambdas[model_idx] = np.append(self.llambdas[model_idx], llambda)
         final_scores, error_variances, nan_mask = model.score_function(D_x, 
                                         rng_instance, error_function, BETA, t=0,
-                                        decay_factor=DECAY_RATE,
+                                        decay_factor=self.args.decay_rate,
                                         weights=self.model_score_fn_weights)
         ehat = final_scores + llambda * error_variances
         t3 = time.time()
@@ -530,22 +546,22 @@ class PickToLearn():
         tot_time += (t1-t0) + (t3-t2) + (t5-t4)
 
         it = 0
-        while ehat_value >= EHAT_THRESHOLD and \
-                len(self.T_x[model_idx]) < MAX_NUM_ACQUIRED_POINTS:
+        while ehat_value >= self.args.ehat_threshold and \
+                len(self.T_x[model_idx]) < self.args.max_num_acquired_points:
             new_x, ehat_value, ttime = \
                 self.picktolearn_one_iteration(model, error_gp, new_x, 
                                                 rng_instance, model_idx,
                                                 stage=it)
             tot_time += ttime
             it += 1
-            if PLOT_DURING_ACQUISITION:
+            if self.args.plot_during:
                 self.plot_model(model, self.learned_V, self.oned_x, self.oned_y, 
-                                self.albert_alphas[model_idx], 
+                                self.albert_levels[model_idx], 
                                 seed=self.seed_list[model_idx], stage=it)
             
             print("\n\n\n\n\n\nITERATION", it, "\n\n\n\n\n\n\n")
         
-        if len(self.T_x[model_idx]) >= MAX_NUM_ACQUIRED_POINTS:
+        if len(self.T_x[model_idx]) >= self.args.max_num_acquired_points:
             self.seed_failed[model_idx] = True
 
         seed = self.seed_list[model_idx]
@@ -556,15 +572,15 @@ class PickToLearn():
         plt.xticks(fontsize=FONTSIZE)
         plt.yticks(fontsize=FONTSIZE)
         plt.tight_layout()
-        plt.savefig(LOGDIR + f"/lambdas_{seed}.png", dpi=1000)
+        plt.savefig(self.args.picktolearn_logdir + f"/lambdas_{seed}.png", dpi=1000)
 
         self.method_times[model_idx] += tot_time
 
     def post_alg_all_seeds(self):
-        if MULTIPLE_SEEDS:
+        if self.args.multiple_seeds:
             self.seed_failed = np.array(self.seed_failed)
             self.method_times = np.array(self.method_times)[~self.seed_failed]
-            self.albert_alphas = np.array(self.albert_alphas)[~self.seed_failed]
+            self.albert_levels = np.array(self.albert_levels)[~self.seed_failed]
             self.albert_times = np.array(self.albert_times)[~self.seed_failed]
             self.albert_num_samples = np.array(self.albert_num_samples)[~self.seed_failed]
             self.model_list = np.array(self.model_list)[~self.seed_failed]
@@ -619,76 +635,76 @@ class PickToLearn():
     def robust_albert_validation(self, robust_results_dict, robust_albert_arrays, 
                                 seed, seed_index):
         '''
-        Run validation for 4 different settings of alpha, each with a different 
+        Run validation for 4 different settings of level, each with a different 
         N and epsilon from the robust scenario optimization method.
         '''
         # Minimal epsilon overall
         robust_arr = robust_albert_arrays[seed_index][:, :, 0]  
         print("\nRobust arr: ", robust_arr)
         coords = np.unravel_index(np.argmin(robust_arr), robust_arr.shape)
-        robust_alpha1 = ROBUST_ALBERT_ALPHA_SWEEP[coords[1]]
+        robust_level1 = ROBUST_ALBERT_LEVEL_SWEEP[coords[1]]
         robust_N1 = robust_albert_arrays[seed_index][coords[0], coords[1], 1]
         robust_numviol1 = robust_albert_arrays[seed_index][coords[0], coords[1], 2]
         robust_eps1 = robust_arr[coords]
-        print("Alpha, N, num violations, and robust eps: ", robust_alpha1, 
+        print("Level, N, num violations, and robust eps: ", robust_level1, 
                                         robust_N1, robust_numviol1, robust_eps1)
         # Minimal epsilon for minimal N
         new_arr = robust_arr[0, :]
-        ind_for_alpha = np.argmin(new_arr)
-        robust_alpha2 = ROBUST_ALBERT_ALPHA_SWEEP[ind_for_alpha]
-        robust_N2 = robust_albert_arrays[seed_index][0, ind_for_alpha, 1]
-        robust_numviol2 = robust_albert_arrays[seed_index][0, ind_for_alpha, 2]
-        robust_eps2 = new_arr[ind_for_alpha]
-        print("Alpha, N, num violations, and robust eps: ", robust_alpha2, 
+        ind_for_level = np.argmin(new_arr)
+        robust_level2 = ROBUST_ALBERT_LEVEL_SWEEP[ind_for_level]
+        robust_N2 = robust_albert_arrays[seed_index][0, ind_for_level, 1]
+        robust_numviol2 = robust_albert_arrays[seed_index][0, ind_for_level, 2]
+        robust_eps2 = new_arr[ind_for_level]
+        print("Level, N, num violations, and robust eps: ", robust_level2, 
                                         robust_N2, robust_numviol2, robust_eps2)
-        # Minimal epsilon for minimal alpha
+        # Minimal epsilon for minimal level
         new_arr = robust_arr[:, 0]
         ind_for_N = np.argmin(new_arr)
-        robust_alpha3 = ROBUST_ALBERT_ALPHA_SWEEP[0]
+        robust_level3 = ROBUST_ALBERT_LEVEL_SWEEP[0]
         robust_N3 = robust_albert_arrays[seed_index][ind_for_N, 0, 1]
         robust_numviol3 = robust_albert_arrays[seed_index][ind_for_N, 0, 2]
         robust_eps3 = new_arr[ind_for_N]
-        print("Alpha, N, num violations, and robust eps: ", robust_alpha3, 
+        print("Level, N, num violations, and robust eps: ", robust_level3, 
                                         robust_N3, robust_numviol3, robust_eps3)
         # Median epsilon overall
         flattened_indices = np.argsort(robust_arr, axis=None)
         mid_index = len(flattened_indices) // 2
         median_flat_index = flattened_indices[mid_index]
         coords = np.unravel_index(median_flat_index, robust_arr.shape)
-        robust_alpha4 = ROBUST_ALBERT_ALPHA_SWEEP[coords[1]]
+        robust_level4 = ROBUST_ALBERT_LEVEL_SWEEP[coords[1]]
         robust_N4 = robust_albert_arrays[seed_index][coords[0], coords[1], 1]
         robust_numviol4 = robust_albert_arrays[seed_index][coords[0], coords[1], 2]
         robust_eps4 = robust_arr[coords]
-        print("Alpha, N, num violations, and robust eps: ", robust_alpha4, 
+        print("Level, N, num violations, and robust eps: ", robust_level4, 
                                         robust_N4, robust_numviol4, robust_eps4)
 
-        tpr1, fpr1, tnr1, fnr1 = validate_albert(self.policy, robust_alpha1, 
+        tpr1, fpr1, tnr1, fnr1 = validate_albert(self.policy, robust_level1, 
                                             self.validation_candidates, 
                                             self.validation_true_costs,
                                             self.state_expander)
-        tpr2, fpr2, tnr2, fnr2 = validate_albert(self.policy, robust_alpha2, 
+        tpr2, fpr2, tnr2, fnr2 = validate_albert(self.policy, robust_level2, 
                                                 self.validation_candidates, 
                                                 self.validation_true_costs,
                                                 self.state_expander)
-        tpr3, fpr3, tnr3, fnr3 = validate_albert(self.policy, robust_alpha3, 
+        tpr3, fpr3, tnr3, fnr3 = validate_albert(self.policy, robust_level3, 
                                                 self.validation_candidates, 
                                                 self.validation_true_costs,
                                                 self.state_expander)
-        tpr4, fpr4, tnr4, fnr4 = validate_albert(self.policy, robust_alpha4, 
+        tpr4, fpr4, tnr4, fnr4 = validate_albert(self.policy, robust_level4, 
                                                 self.validation_candidates, 
                                                 self.validation_true_costs,
                                                 self.state_expander)
         robust_results_dict[seed] = {'1': [tpr1, fpr1, tnr1, fnr1, \
-                                        robust_alpha1, robust_N1, robust_numviol1,
+                                        robust_level1, robust_N1, robust_numviol1,
                                         robust_eps1],
                                     '2': [tpr2, fpr2, tnr2, fnr2, \
-                                        robust_alpha2, robust_N2, robust_numviol2,
+                                        robust_level2, robust_N2, robust_numviol2,
                                         robust_eps2],
                                     '3': [tpr3, fpr3, tnr3, fnr3, \
-                                        robust_alpha3, robust_N3, robust_numviol3,
+                                        robust_level3, robust_N3, robust_numviol3,
                                         robust_eps3],
                                     '4': [tpr4, fpr4, tnr4, fnr4, \
-                                        robust_alpha4, robust_N4, robust_numviol4,
+                                        robust_level4, robust_N4, robust_numviol4,
                                         robust_eps4]}
 
     def validate_albert_method(self):
@@ -696,14 +712,14 @@ class PickToLearn():
         output = {}
         results_dict = {}
         robust_results_dict = {}
-        if MULTIPLE_SEEDS:
+        if self.args.multiple_seeds:
             for i in range(len(self.rng_list)):
                 seed = self.seed_list[i]
                 self.robust_albert_validation(robust_results_dict, 
                                             self.robust_albert_arrays, 
                                             seed, i)
                 
-                tpr, fpr, tnr, fnr = validate_albert(self.policy, self.albert_alphas[i], 
+                tpr, fpr, tnr, fnr = validate_albert(self.policy, self.albert_levels[i], 
                                                         self.validation_candidates, 
                                                         self.validation_true_costs,
                                                         self.state_expander)
@@ -712,13 +728,13 @@ class PickToLearn():
             if not self.seed_failed[0]:
                 self.robust_albert_validation(robust_results_dict, 
                                                 self.robust_albert_arrays, 
-                                                RANDOM_SEED, 0)
+                                                self.args.random_seed, 0)
 
-                tpr, fpr, tnr, fnr = validate_albert(self.policy, self.albert_alphas[0], 
+                tpr, fpr, tnr, fnr = validate_albert(self.policy, self.albert_levels[0], 
                                                         self.validation_candidates, 
                                                         self.validation_true_costs,
                                                         self.state_expander)
-                results_dict[RANDOM_SEED] = [tpr, fpr, tnr, fnr]
+                results_dict[self.args.random_seed] = [tpr, fpr, tnr, fnr]
             
         keys = list(results_dict.keys())
         all_tprs = [results_dict[key][0] for key in keys]
@@ -766,7 +782,7 @@ class PickToLearn():
         print("Average TNR2 Over All Seeds: ", np.mean(robust_tnrs_2))
         print("Average N Over All Seeds: ", np.mean(robust_Ns_2))
         print("Average eps Over All Seeds: ", np.mean(robust_epss_2))
-        print("Minimal epsilon for minimal alpha")
+        print("Minimal epsilon for minimal level")
         print("Average TPR3 Over All Seeds: ", np.mean(robust_tprs_3))
         print("Average FNR3 Over All Seeds: ", np.mean(robust_fnrs_3))
         print("Average FPR3 Over All Seeds: ", np.mean(robust_fprs_3))
@@ -796,8 +812,8 @@ class PickToLearn():
         print("Average FPR Over All Seeds: ", np.mean(all_fprs))
         print("Average TNR Over All Seeds: ", np.mean(all_tnrs))
 
-        print("\nAlbert alphas and mean", self.albert_alphas, \
-                                            np.mean(self.albert_alphas))
+        print("\nAlbert levels and mean", self.albert_levels, \
+                                            np.mean(self.albert_levels))
         print("Albert total times and mean", self.albert_times, \
                                             np.mean(self.albert_times))
         print("Albert total num samples and mean", self.albert_num_samples, \
@@ -808,7 +824,7 @@ class PickToLearn():
         output['albert_itr_method'] = d
         d['method_times'] = self.albert_times
         d['num_samples'] = self.albert_num_samples
-        d['alphas'] = self.albert_alphas
+        d['levels'] = self.albert_levels
         d['avg_tpr'] = np.mean(all_tprs)
         d['avg_fnr'] = np.mean(all_fnrs)
         d['avg_fpr'] = np.mean(all_fprs)
@@ -823,7 +839,7 @@ class PickToLearn():
         d['min_N'] = [np.mean(robust_tprs_2), np.mean(robust_fnrs_2), 
                 np.mean(robust_fprs_2), np.mean(robust_tnrs_2), 
                 np.mean(robust_Ns_2), np.mean(robust_epss_2)]
-        d['min_alpha'] = [np.mean(robust_tprs_3), np.mean(robust_fnrs_3), 
+        d['min_level'] = [np.mean(robust_tprs_3), np.mean(robust_fnrs_3), 
                 np.mean(robust_fprs_3), np.mean(robust_tnrs_3), 
                 np.mean(robust_Ns_3), np.mean(robust_epss_3)]
         d['median'] = [np.mean(robust_tprs_4), np.mean(robust_fnrs_4), 

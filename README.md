@@ -1,11 +1,32 @@
-# DeepReach Verification: Generating Formal Safety Assurances for High-Dimensional Reachability
-### [Project Page](https://sia-lab-git.github.io/DeepReach_Verification/) | [Paper](https://arxiv.org/pdf/2209.12336.pdf)<br>
+# Active Calibration of Reachable Sets via Approximate Pick-to-Learn
+### [Paper](https://arxiv.org/)<br>
 
-[Albert Lin](https://www.cs.princeton.edu/~aklin),
-Somil Bansal<br>
-University of Southern California
+Sampada Deglurkar, Ebonye Smith, Jingqi Li, Claire Tomlin<br>
+University of California, Berkeley<br> 
+University of Texas at Austin
 
-This code repository is still being reorganized before release. 
+<!--
+## Introduction
+
+This is the official implementation of the paper "Active Calibration of Reachable Sets
+via Approximate Pick-to-Learn".
+--> 
+
+## Setup
+
+In a conda environment, please follow the instructions to install the [Lipschitz Continuous Reachability Learning](https://github.com/jamesjingqili/Lipschitz_Continuous_Reachability_Learning) repo.
+The repo provides the gym environment for our simulated drone racing experiments, the learned
+reachability value function and policy, and the implementations of the baselines.<br>
+
+In our particular implementation, the reachability value function is modeled as a Gaussian process
+(GP).
+We use the GPy library to fit the value function.
+You can install GPy by following the documentation [here](https://github.com/SheffieldML/GPy).
+
+## Running Experiments
+
+
+
 
 <!---
 This is the official implementation of the paper "DeepReach: A Deep Learning Approach to High-Dimensional Reachability".
@@ -61,5 +82,8 @@ If you find our work useful in your research, please cite:
 ```
 --->
 
+<!-- 
 ## Contact
 If you have any questions, please feel free to email the authors.
+-->
+
