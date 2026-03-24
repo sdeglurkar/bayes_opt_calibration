@@ -1,8 +1,8 @@
 import sys
+import os
+sys.path.append(os.getcwd())
 
 from Lipschitz_Continuous_Reachability_Learning.experiment_script.env_utils import evaluate_V_batch 
-sys.path.append(
-    '/Users/sampada/Documents/Research/Bayesian_Optimization/code/bayes_opt_calibration/')
 from Lipschitz_Continuous_Reachability_Learning import experiment_script
 from experiment_script.env_utils import NoResetSyncVectorEnv, find_a_batch, evaluate_V, \
                                         evaluate_V_batch

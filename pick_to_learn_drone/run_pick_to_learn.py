@@ -53,7 +53,7 @@ assert args.num_calibration_points >= SIZE_C  # Necessary for conformal predicti
 
 EXPERIMENT_STRING = str(INPUT_DIM) + \
     'D_' + slice_str + random_str + 'N' + str(args.desired_N) + '_init' + \
-        str(args.num_model_init_iters) + '_decay' + str(args.decay_factor) + \
+        str(args.num_model_init_iters) + '_decay' + str(args.decay_rate) + \
         'thres' + str(args.ehat_threshold) + '_alpha' + str(args.alpha) + \
         '_tolalpha' + str(args.tolerance_alpha) 
 
@@ -74,10 +74,10 @@ obj.setup()
 results = {'T': [], 'epsU': []}
 for i in range(len(obj.model_list)):
     model = obj.model_list[i]
-    error_gp = obj.error_gp_list[i]
     rng_instance = obj.rng_list[i]
-    obj.picktolearn_alg(model, error_gp, rng_instance, i)
-    
+    obj.picktolearn_alg(model, rng_instance, i)
+
+########################### VALIDATE AND STORE RESULTS ###########################
 obj.post_alg_all_seeds()
 for i in range(len(obj.model_list)):
     epsL, epsU = find_epsLU(len(obj.T_x[i]), args.desired_N, args.delta)

@@ -1,7 +1,6 @@
 import sys 
-sys.path.append(
-    '/Users/sampada/Documents/Research/Bayesian_Optimization/code/bayes_opt_calibration/')
 import os
+sys.path.append(os.getcwd())
 from Lipschitz_Continuous_Reachability_Learning import experiment_script
 from experiment_script.env_utils import get_parser
 
@@ -65,7 +64,6 @@ EHAT_THRESHOLD = 0.3
 MAX_NUM_ACQUIRED_POINTS = 70 
 # assert NUM_CALIBRATION_POINTS >= (1-ALPHA)/ALPHA  # Necessary for conformal prediction
 # assert NUM_CALIBRATION_POINTS >= SIZE_C  # Necessary for conformal prediction
-NUM_ERROR_GP_POINTS = 50  # Not used
 
 ########################### BASELINE SETTINGS ###########################
 ALBERT_EPS = 0.05 

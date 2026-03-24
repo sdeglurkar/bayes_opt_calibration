@@ -1,12 +1,12 @@
 import sys
-sys.path.append(
-    '/Users/sampada/Documents/Research/Bayesian_Optimization/code/bayes_opt_calibration/')
+import os 
+sys.path.append(os.getcwd())
+
 from Lipschitz_Continuous_Reachability_Learning import experiment_script
 from experiment_script.env_utils import evaluate_V_batch
 from experiment_script.lin_scenario_opt import solve_iterative_method, robust_scenario_opt
 
 from conformal_prediction import get_quantile_for_interval_score_fn
-from error_estimate_model import ErrorGP
 from helper import *
 from main_model import MainGP
 from pick_to_learn_settings import *
@@ -14,7 +14,6 @@ from pick_to_learn_settings import *
 import GPy
 import matplotlib.pyplot as plt
 import numpy as np
-import os 
 import pickle
 import time
 
@@ -30,14 +29,10 @@ class PickToLearn():
         self.acq_calib_candidates = None 
         self.acq_calib_true_costs = None
         self.full_acq_calib_candidates = None  
-        # self.error_gp_candidates = None 
-        # self.error_gp_true_costs = None 
-        # self.full_error_gp_candidates = None
         self.validation_candidates = None
         self.validation_true_costs = None 
         self.full_validation_candidates = None
         self.model_list = []
-        self.error_gp_list = []
         self.rng_list = MULTIPLE_RNG_LIST
         self.seed_list = MULTIPLE_SEED_LIST
         self.llambdas = []
@@ -108,7 +103,6 @@ class PickToLearn():
                 # self.plot_error_gp(error_gp, self.candidates, self.oned_x, self.oned_y, 
                 #                     ERROR_GP_LOGDIR + f'/gp_init_colorbar{seed}.png')
                 # self.error_gp_list.append(error_gp)
-                self.error_gp_list.append(None)
                 self.T_x.append(np.array([[]]))
                 self.T_y.append(np.array([[]]))
                 self.llambdas.append(np.array([]))
@@ -126,7 +120,6 @@ class PickToLearn():
             # self.plot_error_gp(error_gp, self.candidates, self.oned_x, self.oned_y, 
             #                         ERROR_GP_LOGDIR + f'/gp_init_colorbar.png')
             # self.error_gp_list = [error_gp]
-            self.error_gp_list = [None]
             self.T_x.append(np.array([[]]))
             self.T_y.append(np.array([[]]))
             self.llambdas.append(np.array([]))
@@ -196,29 +189,29 @@ class PickToLearn():
         
         return D_candidates, D_true_costs, full_D_candidates
 
-    def get_error_gp_dataset(self, rng_instance):
-        print("Obtaining Error GP Dataset")
-        error_gp_candidates, error_gp_true_costs, full_error_gp_candidates = \
-                get_ground_truths_for_random_points(RANGE_X, self.args.ego_setting, 
-                                                    self.args.adversary_setting, rng_instance, 
-                                                    self.args.f, 
-                                                    NUM_ERROR_GP_POINTS, self.args.input_dim)
+    # def get_error_gp_dataset(self, rng_instance):
+    #     print("Obtaining Error GP Dataset")
+    #     error_gp_candidates, error_gp_true_costs, full_error_gp_candidates = \
+    #             get_ground_truths_for_random_points(RANGE_X, self.args.ego_setting, 
+    #                                                 self.args.adversary_setting, rng_instance, 
+    #                                                 self.args.f, 
+    #                                                 NUM_ERROR_GP_POINTS, self.args.input_dim)
 
-        # if os.path.isfile(f"drone_pickles_{INPUT_DIM}D/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl"):
-        #     with open(f"drone_pickles_{INPUT_DIM}D/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", "rb") as f:
-        #         error_gp_candidates, error_gp_true_costs, full_error_gp_candidates = \
-        #             pickle.load(f)
-        # else:
-        #     error_gp_candidates, error_gp_true_costs, full_error_gp_candidates = \
-        #         get_ground_truths_for_random_points(RANGE_X, EGO_SETTING, 
-        #                                             ADVERSARY_SETTING, RNG, F, 
-        #                                             NUM_ERROR_GP_POINTS, INPUT_DIM)
-        #     with open(f"drone_pickles_{INPUT_DIM}D/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", 'wb') as f:
-        #         pickle.dump([error_gp_candidates, error_gp_true_costs, \
-        #                     full_error_gp_candidates], f)
-        print("Done!")
+    #     # if os.path.isfile(f"drone_pickles_{INPUT_DIM}D/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl"):
+    #     #     with open(f"drone_pickles_{INPUT_DIM}D/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", "rb") as f:
+    #     #         error_gp_candidates, error_gp_true_costs, full_error_gp_candidates = \
+    #     #             pickle.load(f)
+    #     # else:
+    #     #     error_gp_candidates, error_gp_true_costs, full_error_gp_candidates = \
+    #     #         get_ground_truths_for_random_points(RANGE_X, EGO_SETTING, 
+    #     #                                             ADVERSARY_SETTING, RNG, F, 
+    #     #                                             NUM_ERROR_GP_POINTS, INPUT_DIM)
+    #     #     with open(f"drone_pickles_{INPUT_DIM}D/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", 'wb') as f:
+    #     #         pickle.dump([error_gp_candidates, error_gp_true_costs, \
+    #     #                     full_error_gp_candidates], f)
+    #     print("Done!")
 
-        return error_gp_candidates, error_gp_true_costs, full_error_gp_candidates
+    #     return error_gp_candidates, error_gp_true_costs, full_error_gp_candidates
     
     def get_initial_gp_dataset(self, rng_instance):
         print("Obtaining Initial GP Dataset")
@@ -400,24 +393,24 @@ class PickToLearn():
         plt.tight_layout()
         plt.savefig(fig_name, dpi=1000)
 
-    def fit_initial_error_gp(self, X, Y):
-        mean_function = None 
-        error_gp = ErrorGP(F, mean_function, INPUT_DIM, RANGE_X, NOISE_VAR, 
-                        LENGTH_SCALE, ERROR_GP_LOGDIR)
-        error_gp.fit(X, Y)
-        return error_gp 
+    # def fit_initial_error_gp(self, X, Y):
+    #     mean_function = None 
+    #     error_gp = ErrorGP(F, mean_function, INPUT_DIM, RANGE_X, NOISE_VAR, 
+    #                     LENGTH_SCALE, ERROR_GP_LOGDIR)
+    #     error_gp.fit(X, Y)
+    #     return error_gp 
     
-    def plot_error_gp(self, error_gp, candidates, oned_x, oned_y, fig_name):
-        mu, _ = error_gp.m.predict(candidates, full_cov=False)
-        mu = mu.reshape(len(oned_x), len(oned_y))
-        plt.figure()
-        plt.contourf(oned_x,
-                    oned_y,
-                    mu)
-        plt.colorbar()
-        plt.savefig(fig_name)
+    # def plot_error_gp(self, error_gp, candidates, oned_x, oned_y, fig_name):
+    #     mu, _ = error_gp.m.predict(candidates, full_cov=False)
+    #     mu = mu.reshape(len(oned_x), len(oned_y))
+    #     plt.figure()
+    #     plt.contourf(oned_x,
+    #                 oned_y,
+    #                 mu)
+    #     plt.colorbar()
+    #     plt.savefig(fig_name)
     
-    def picktolearn_one_iteration(self, model, error_gp, new_x, rng_instance, model_idx,
+    def picktolearn_one_iteration(self, model, new_x, rng_instance, model_idx,
                                         stage):
         tot_time = 0
         t0 = time.time()
@@ -455,9 +448,8 @@ class PickToLearn():
         # error_function = error_gp.forward()
         
         # Get a_{h,eta}(z) and u_{h,eta}(z)
-        error_function = None
         final_scores, error_variances, nan_mask = model.score_function(C_x, 
-                                        rng_instance, error_function, BETA, t=stage,
+                                        rng_instance, BETA, t=stage,
                                         decay_factor=self.args.decay_rate,
                                         weights=self.model_score_fn_weights)
         # Run conformal prediction to get ehat
@@ -476,7 +468,7 @@ class PickToLearn():
                                                         e, self.args.alpha)
         self.llambdas[model_idx] = np.append(self.llambdas[model_idx], llambda)
         final_scores, error_variances, nan_mask = model.score_function(remaining, 
-                                        rng_instance, error_function, BETA, t=stage,
+                                        rng_instance, BETA, t=stage,
                                         decay_factor=self.args.decay_rate,
                                         weights=self.model_score_fn_weights)
         ehat = final_scores + llambda * error_variances
@@ -498,7 +490,7 @@ class PickToLearn():
         tot_time += (t1-t0) + (t3-t2) + (t5-t4)
         return new_x, ehat_value, tot_time
     
-    def picktolearn_alg(self, model, error_gp, rng_instance, model_idx):
+    def picktolearn_alg(self, model, rng_instance, model_idx):
         tot_time = 0
         t0 = time.time()
 
@@ -507,10 +499,9 @@ class PickToLearn():
         C_costs = self.D_C_list[model_idx]['C'][1]
 
         # error_function = error_gp.forward()
-        error_function = None
         # Get a_{h,eta}(z) and u_{h,eta}(z)
         final_scores, error_variances, nan_mask = model.score_function(C_x, 
-                                        rng_instance, error_function, BETA, t=0,
+                                        rng_instance, BETA, t=0,
                                         decay_factor=self.args.decay_rate,
                                         weights=self.model_score_fn_weights)
         # Run conformal prediction to get ehat
@@ -528,7 +519,7 @@ class PickToLearn():
                                                         e, ALPHA)
         self.llambdas[model_idx] = np.append(self.llambdas[model_idx], llambda)
         final_scores, error_variances, nan_mask = model.score_function(D_x, 
-                                        rng_instance, error_function, BETA, t=0,
+                                        rng_instance, BETA, t=0,
                                         decay_factor=self.args.decay_rate,
                                         weights=self.model_score_fn_weights)
         ehat = final_scores + llambda * error_variances
@@ -549,7 +540,7 @@ class PickToLearn():
         while ehat_value >= self.args.ehat_threshold and \
                 len(self.T_x[model_idx]) < self.args.max_num_acquired_points:
             new_x, ehat_value, ttime = \
-                self.picktolearn_one_iteration(model, error_gp, new_x, 
+                self.picktolearn_one_iteration(model, new_x, 
                                                 rng_instance, model_idx,
                                                 stage=it)
             tot_time += ttime
