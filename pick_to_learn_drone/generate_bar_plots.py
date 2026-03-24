@@ -106,7 +106,6 @@ def plot_samples(samples, dim_name, successes, figname, figsize=(8,5)):
             samples[:, i],
             width,
             label=method,
-            # color=f"C{i}" if method != "Actual" else "red",
             color=COLORS[i],
             alpha=0.8 if method != "Actual" else 1.0,
             hatch='//' if method=="Actual" else ''
@@ -117,8 +116,7 @@ def plot_samples(samples, dim_name, successes, figname, figsize=(8,5)):
                 labels.append(f"{successes[c,i]}/10")
             else:
                 labels.append("")
-        # labels = [f"{successes[c,i]}/10" for c in range(num_conditions)]
-        # ax.bar_label(bars, labels=labels, padding=2, fontsize=8)
+        
         for bar, label in zip(bars, labels):
             height = bar.get_height()
             if label is None or height is None or np.isnan(height):
@@ -132,12 +130,9 @@ def plot_samples(samples, dim_name, successes, figname, figsize=(8,5)):
                 fontsize=FONTSIZE
             )
     ax.set_xticks(x)
-    # ax.set_xticklabels(conditions[:len(samples)], rotation=30, fontsize=FONTSIZE)
     ax.set_xticklabels(conditions[:len(samples)], fontsize=FONTSIZE-3)
-    # ax.set_ylabel("Number of Samples", fontsize=FONTSIZE)
     ax.tick_params(axis='y', labelsize=FONTSIZE)
     ax.set_title(f"Number of Samples ({dim_name})", fontsize=FONTSIZE+2)
-    # ax.legend(loc='upper center', ncol=num_methods, bbox_to_anchor=(0.5, 1.15))
     ax.legend(loc='upper right', fontsize=FONTSIZE-4)
     plt.tight_layout()
     # plt.show()
@@ -155,20 +150,16 @@ def plot_fpr_fnr(fpr, fnr, dim_name, successes, figname, figsize=(8,5)):
     
     for i, method in enumerate(all_methods):
         bars_fpr = ax.bar(
-            # x + (i - num_methods/2)*width*2,
             x + (i - num_methods/2)*width*2,
             fpr[:, i],
             width,
-            # color=colors[i],
             color=COLORS[i],
             alpha=0.7
         )
         bars_fnr = ax.bar(
-            # x + (i - num_methods/2)*width*2 + width,
             x + (i - num_methods/2)*width*2 + width,
             fnr[:, i],
             width,
-            # color=colors[i],
             color=COLORS[i],
             alpha=0.9,
             hatch='//'
@@ -180,9 +171,7 @@ def plot_fpr_fnr(fpr, fnr, dim_name, successes, figname, figsize=(8,5)):
                 labels.append(f"{successes[c,i]}/10")
             else:
                 labels.append("")
-        # labels = [f"{successes[c,i]}/10" for c in range(num_conditions)]
-        # ax.bar_label(bars_fpr, labels=labels, padding=2, fontsize=8)
-        # ax.bar_label(bars_fnr, labels=labels, padding=2, fontsize=8)
+        
         for bar, label in zip(bars_fpr, labels):
             height = bar.get_height()
             if label is None or height is None or np.isnan(height):
@@ -197,9 +186,7 @@ def plot_fpr_fnr(fpr, fnr, dim_name, successes, figname, figsize=(8,5)):
             )
     
     ax.set_xticks(x)
-    # ax.set_xticklabels(conditions[:len(samples)], rotation=30, fontsize=FONTSIZE)
     ax.set_xticklabels(conditions[:len(samples)], fontsize=FONTSIZE-2)
-    # ax.set_ylabel("Rate", fontsize=FONTSIZE)
     ax.tick_params(axis='y', labelsize=FONTSIZE)
     ax.set_title(f"FPR and FNR ({dim_name})", fontsize=FONTSIZE+2)
     
@@ -211,7 +198,6 @@ def plot_fpr_fnr(fpr, fnr, dim_name, successes, figname, figsize=(8,5)):
     ax.legend(handles=legend_elements, loc='upper right', ncol=2, fontsize=FONTSIZE-4)
     
     plt.tight_layout()
-    # plt.show()
     plt.savefig(figname, dpi=1000)
 
 # -----------------------------

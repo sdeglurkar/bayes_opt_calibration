@@ -50,13 +50,3 @@ def find_epsLU(k, N, delta, tol=1e-10):
 
     return epsL, epsU
 
-
-# N = 1000000
-# size_T = 20
-# delta = 1e-2
-
-# epsL, epsU = find_epsLU(size_T, N, delta)
-# print(epsU)
-# print(size_T/N)
-# print(epsL)
-

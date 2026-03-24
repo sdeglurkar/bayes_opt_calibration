@@ -24,7 +24,6 @@ class PickToLearn():
         self.T_x = []
         self.T_y = []
         self.D_x = None 
-        # self.D_y = None
         self.full_D_x = None  
         self.acq_calib_candidates = None 
         self.acq_calib_true_costs = None
@@ -50,11 +49,6 @@ class PickToLearn():
     def setup(self):
         print("\nSetting up Pick-to-Learn")
         t0 = time.time()
-        # self.D_x, self.D_y, self.full_D_x = self.get_D()
-        # self.acq_calib_candidates, self.acq_calib_true_costs, self.full_acq_calib_candidates = \
-        #     self.get_acquisition_fn_calib_dataset()
-        # self.error_gp_candidates, self.error_gp_true_costs, self.full_error_gp_candidates = \
-        #     self.get_error_gp_dataset()  # Not currently used
         self.validation_candidates, self.validation_true_costs, self.full_validation_candidates, \
             self.learned_V = self.get_validation_dataset()
         self.candidates, self.oned_x, self.oned_y, self.full_candidates = \
@@ -95,14 +89,6 @@ class PickToLearn():
                                                             num_safety_violations])
                 self.robust_albert_arrays.append(robust_arr)
             for i in range(len(self.rng_list)):
-                # model = self.model_list[i]
-                # seed = self.seed_list[i]
-                # error_gp_ys = model.get_error_of_model_for_points(self.error_gp_candidates, \
-                #                                     self.error_gp_true_costs, BETA)
-                # error_gp = self.fit_initial_error_gp(self.error_gp_candidates, error_gp_ys)
-                # self.plot_error_gp(error_gp, self.candidates, self.oned_x, self.oned_y, 
-                #                     ERROR_GP_LOGDIR + f'/gp_init_colorbar{seed}.png')
-                # self.error_gp_list.append(error_gp)
                 self.T_x.append(np.array([[]]))
                 self.T_y.append(np.array([[]]))
                 self.llambdas.append(np.array([]))
@@ -114,12 +100,6 @@ class PickToLearn():
             self.D_C_list, ttimes2 = self.get_D_C_multiple_models(self.rng_list)
             self.method_times = [t2 + t3 + (t1-t0) for (t2, t3) in zip(ttimes1, ttimes2)]
         else:
-            # error_gp_ys = model.get_error_of_model_for_points(self.error_gp_candidates, \
-            #                                         self.error_gp_true_costs, BETA)
-            # error_gp = self.fit_initial_error_gp(self.error_gp_candidates, error_gp_ys)
-            # self.plot_error_gp(error_gp, self.candidates, self.oned_x, self.oned_y, 
-            #                         ERROR_GP_LOGDIR + f'/gp_init_colorbar.png')
-            # self.error_gp_list = [error_gp]
             self.T_x.append(np.array([[]]))
             self.T_y.append(np.array([[]]))
             self.llambdas.append(np.array([]))
@@ -173,46 +153,12 @@ class PickToLearn():
                                                     self.args.f, 
                                                     self.args.desired_N, self.args.input_dim,
                                                     get_costs=False)
-        # if os.path.isfile(f"drone_pickles_{INPUT_DIM}D/D_{DESIRED_N}.pkl"):
-        #     with open(f"drone_pickles_{INPUT_DIM}D/D_{DESIRED_N}.pkl", "rb") as f:
-        #         D_candidates, D_true_costs, full_D_candidates = pickle.load(f)
-        # else:
-        #     D_candidates, D_true_costs, full_D_candidates = \
-        #         get_ground_truths_for_random_points(RANGE_X, EGO_SETTING, 
-        #                                             ADVERSARY_SETTING, RNG, F, 
-        #                                             DESIRED_N, INPUT_DIM)
-        #     with open(f'drone_pickles_{INPUT_DIM}D/D_{DESIRED_N}.pkl', 'wb') as f:
-        #         pickle.dump([D_candidates, D_true_costs, full_D_candidates], f)
         N = len(D_candidates)
         assert N == DESIRED_N
         print("Done!")
         
         return D_candidates, D_true_costs, full_D_candidates
 
-    # def get_error_gp_dataset(self, rng_instance):
-    #     print("Obtaining Error GP Dataset")
-    #     error_gp_candidates, error_gp_true_costs, full_error_gp_candidates = \
-    #             get_ground_truths_for_random_points(RANGE_X, self.args.ego_setting, 
-    #                                                 self.args.adversary_setting, rng_instance, 
-    #                                                 self.args.f, 
-    #                                                 NUM_ERROR_GP_POINTS, self.args.input_dim)
-
-    #     # if os.path.isfile(f"drone_pickles_{INPUT_DIM}D/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl"):
-    #     #     with open(f"drone_pickles_{INPUT_DIM}D/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", "rb") as f:
-    #     #         error_gp_candidates, error_gp_true_costs, full_error_gp_candidates = \
-    #     #             pickle.load(f)
-    #     # else:
-    #     #     error_gp_candidates, error_gp_true_costs, full_error_gp_candidates = \
-    #     #         get_ground_truths_for_random_points(RANGE_X, EGO_SETTING, 
-    #     #                                             ADVERSARY_SETTING, RNG, F, 
-    #     #                                             NUM_ERROR_GP_POINTS, INPUT_DIM)
-    #     #     with open(f"drone_pickles_{INPUT_DIM}D/error_gp_data_{NUM_ERROR_GP_POINTS}.pkl", 'wb') as f:
-    #     #         pickle.dump([error_gp_candidates, error_gp_true_costs, \
-    #     #                     full_error_gp_candidates], f)
-    #     print("Done!")
-
-    #     return error_gp_candidates, error_gp_true_costs, full_error_gp_candidates
-    
     def get_initial_gp_dataset(self, rng_instance):
         print("Obtaining Initial GP Dataset")
         initial_gp_candidates, initial_gp_true_costs, full_initial_gp_candidates = \
@@ -233,19 +179,6 @@ class PickToLearn():
                                                     self.args.f, 
                                                     self.args.num_calibration_points,
                                                     self.args.input_dim)
-        # if os.path.isfile(f"drone_pickles_{INPUT_DIM}D/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl"):
-        #     with open(f"drone_pickles_{INPUT_DIM}D/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl", "rb") as f:
-        #         acq_calib_candidates, acq_calib_true_costs, full_acq_calib_candidates = \
-        #             pickle.load(f)
-        # else:
-        #     acq_calib_candidates, acq_calib_true_costs, full_acq_calib_candidates = \
-        #         get_ground_truths_for_random_points(RANGE_X, EGO_SETTING, 
-        #                                             ADVERSARY_SETTING, RNG, F, 
-        #                                             NUM_CALIBRATION_POINTS,
-        #                                             INPUT_DIM)
-        #     with open(f"drone_pickles_{INPUT_DIM}D/acq_calibration_data_{NUM_CALIBRATION_POINTS}.pkl", 'wb') as f:
-        #         pickle.dump([acq_calib_candidates, acq_calib_true_costs, \
-        #                     full_acq_calib_candidates], f)
         print("Done!")
 
         return acq_calib_candidates, acq_calib_true_costs, full_acq_calib_candidates
@@ -282,19 +215,6 @@ class PickToLearn():
                                             self.args.input_dim,
                                             self.policy,
                                             get_learned_V=True)
-            # # print(validation_candidates, validation_true_costs)
-            # lgdir = 'drone_pickles_' + str(INPUT_DIM) + 'D_basicslice_boundaryacq_N4000_init40_decay0.95thres0.3_alpha0.05_tolalpha0.03'
-            # with open(f"{lgdir}/validation_data.pkl", "rb") as f:
-            #     other_validation_candidates, other_validation_true_costs, _, \
-            #     other_learned_V = \
-            #         pickle.load(f)
-            # differing_inds = np.where(validation_true_costs != other_validation_true_costs)[0]
-            # print(differing_inds)
-            # print(validation_true_costs[differing_inds[0]], other_validation_true_costs[differing_inds[0]])
-            # print(validation_candidates[differing_inds[0]], other_validation_candidates[differing_inds[0]])
-            # print(validation_true_costs[differing_inds[1:4]], other_validation_true_costs[differing_inds[1:4]])
-            # print(validation_candidates[differing_inds[1:4]], other_validation_candidates[differing_inds[1:4]])
-            # exit()
             with open(f'{self.args.picktolearn_validation_logdir}/validation_data.pkl', 'wb') as f:
                 pickle.dump([validation_candidates, validation_true_costs, \
                             full_validation_candidates, learned_V], f)
@@ -327,8 +247,6 @@ class PickToLearn():
         model = MainGP(self.args.f, mean_function, self.args.input_dim, candidates, RANGE_X, 
                         NOISE_VAR, COST_THRES, CONF_THRES, LENGTH_SCALE, 
                         logdir=self.args.picktolearn_logdir)
-        # model.initial_setup(NUM_MODEL_INIT_ITERS, rng_instance, self.state_expander, 
-        #                     to_plot=False)
         model.initial_setup_given_points(initial_gp_candidates, 
                                 initial_gp_true_costs, seed_val, to_plot=False)
         t1 = time.time()
@@ -392,23 +310,6 @@ class PickToLearn():
         plt.yticks(fontsize=FONTSIZE)
         plt.tight_layout()
         plt.savefig(fig_name, dpi=1000)
-
-    # def fit_initial_error_gp(self, X, Y):
-    #     mean_function = None 
-    #     error_gp = ErrorGP(F, mean_function, INPUT_DIM, RANGE_X, NOISE_VAR, 
-    #                     LENGTH_SCALE, ERROR_GP_LOGDIR)
-    #     error_gp.fit(X, Y)
-    #     return error_gp 
-    
-    # def plot_error_gp(self, error_gp, candidates, oned_x, oned_y, fig_name):
-    #     mu, _ = error_gp.m.predict(candidates, full_cov=False)
-    #     mu = mu.reshape(len(oned_x), len(oned_y))
-    #     plt.figure()
-    #     plt.contourf(oned_x,
-    #                 oned_y,
-    #                 mu)
-    #     plt.colorbar()
-    #     plt.savefig(fig_name)
     
     def picktolearn_one_iteration(self, model, new_x, rng_instance, model_idx,
                                         stage):
@@ -434,18 +335,6 @@ class PickToLearn():
                                 self.seed_list[model_idx])
         remaining = np.array([elem for elem in np.array(D_x) if \
                     elem not in self.T_x[model_idx]])
-        
-        # Now re-fit the error GP
-        # error_gp_new_ys = model.get_error_of_model_for_points(self.error_gp_candidates, \
-        #                                            self.error_gp_true_costs, BETA)
-        # print(error_gp_new_ys)
-        # scatter = plt.scatter(self.error_gp_candidates[:, 0], 
-        #                     self.error_gp_candidates[:, 1], c=error_gp_new_ys, 
-        #                     cmap='viridis')
-        # plt.colorbar(scatter)
-        # plt.show()
-        # error_gp.fit(self.error_gp_candidates, error_gp_new_ys)
-        # error_function = error_gp.forward()
         
         # Get a_{h,eta}(z) and u_{h,eta}(z)
         final_scores, error_variances, nan_mask = model.score_function(C_x, 
@@ -498,7 +387,6 @@ class PickToLearn():
         C_x = self.D_C_list[model_idx]['C'][0]
         C_costs = self.D_C_list[model_idx]['C'][1]
 
-        # error_function = error_gp.forward()
         # Get a_{h,eta}(z) and u_{h,eta}(z)
         final_scores, error_variances, nan_mask = model.score_function(C_x, 
                                         rng_instance, BETA, t=0,

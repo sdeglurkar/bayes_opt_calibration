@@ -48,8 +48,6 @@ def batched_rollouts_generator(horizon, policy, args):
         min_constraints = np.minimum.accumulate(constraints, axis=1)
         reach_avoid_measures = np.max(np.minimum(rewards, min_constraints), axis=1)
 
-        # print("Rollouts", state_trajs)
-
         return np.expand_dims(reach_avoid_measures, -1)
 
     return batched_rollouts
@@ -149,7 +147,6 @@ def get_ground_truths_for_random_points(range_x, ego_setting, adversary_setting,
                             ad_z1, ad_vz1))
 
     if get_costs:
-        # costs_at_random_points = np.expand_dims(f(random_points), -1)
         costs_at_random_points = f(random_points)
     else:
         costs_at_random_points = None
@@ -399,7 +396,6 @@ def get_ground_truths_for_a_grid(range_x, ego_setting, adversary_setting,
                             ad_y1, ad_vy1,
                             ad_z1, ad_vz1))
     if get_costs: 
-        # costs = np.expand_dims(f(candidates), -1)
         costs = f(candidates)
     else:
         costs = None
@@ -535,15 +531,7 @@ def plot_main_gp(learned_V, beta, oned_x, oned_y,
             colors="gray",
             linewidths=2,
             linestyles='dashdot') 
-    criterion = mu + beta * np.sqrt(var) 
-    criterion = criterion.reshape(len(oned_y), len(oned_x))
-    # plt.contour(oned_x,
-    #             oned_y,
-    #             criterion,
-    #             levels=[0.0],
-    #             colors="lightblue",
-    #             linewidths=2)
-    criterion = mu - beta * np.sqrt(var)  
+    criterion = mu - beta * np.sqrt(var)  # Conservative bc less likely to say state is in BRT
     criterion = criterion.reshape(len(oned_y), len(oned_x))
     plt.contour(oned_x,
                 oned_y,
@@ -557,10 +545,11 @@ def plot_main_gp(learned_V, beta, oned_x, oned_y,
         acq_points = np.array(model.acq_cache)
         if dim == 2 or dim == 3:
             # plt.scatter(acq_points[:, 0], acq_points[:, 1], color='g')
-            # plt.scatter(acq_points[-1, 0], acq_points[-1, 1], color='orange', s=100)
+            # plt.scatter(acq_points[-1, 0], acq_points[-1, 1], color='orange', s=90)
             plt.scatter(acq_points[:, 0], acq_points[:, 1], color='orange', s=90)
         elif dim == 4 or dim == 6 or dim == 12:
-            plt.scatter(acq_points[:, 0], acq_points[:, 2], color='g')
+            # plt.scatter(acq_points[:, 0], acq_points[:, 2], color='g')
+            plt.scatter(acq_points[:, 0], acq_points[:, 1], color='orange', s=90)
         else:
             raise NotImplementedError
     plt.xlabel(r"$x_{ego}$", fontsize=fontsize+2)

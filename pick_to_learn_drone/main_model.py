@@ -19,55 +19,6 @@ class MainGP:
         self.conf_thres = conf_thres
         self.logdir = logdir
         self.acq_cache = np.array([[]])
-    
-    # def initial_setup(self, warmstart_sample, rng_instance, state_expander,
-    #                 to_plot=False, save=False):
-    #     # WARNING: Only works for model dim = 2!
-    #     X_init = []
-    #     # for i in range(self.input_dim):
-    #     #     X_i_init = rng_instance.uniform(
-    #     #         self.range_x[i][0],
-    #     #         self.range_x[i][1],
-    #     #         (warmstart_sample,)
-    #     #     )
-    #     #     X_init.append(X_i_init)
-    #     X_i_init = rng_instance.uniform(
-    #         self.range_x[0][0],
-    #         self.range_x[0][1],
-    #         (warmstart_sample,)
-    #         )
-    #     X_init.append(X_i_init)
-    #     X_i_init = rng_instance.uniform(
-    #         self.range_x[2][0],
-    #         self.range_x[2][1],
-    #         (warmstart_sample,)
-    #         )
-    #     X_init.append(X_i_init)
-
-    #     self.X = np.stack(X_init, axis=1)
-    #     self.Y = self.f(state_expander(self.X)) 
-    #     if self.init_fn is None:
-    #         self.m = GPy.models.GPRegression(
-    #             self.X, 
-    #             self.Y, 
-    #             GPy.kern.Matern52(self.input_dim, lengthscale=self.length_scale, ARD=False),
-    #             noise_var = self.noise_var
-    #             )
-    #     else:
-    #         self.m = GPy.models.GPRegression(
-    #             self.X, 
-    #             self.Y, 
-    #             GPy.kern.Matern52(self.input_dim, lengthscale=self.length_scale, ARD=False),
-    #             noise_var = self.noise_var,
-    #             mean_function=self.init_fn
-    #             )
-    #     self.m.optimize_restarts(messages=True)
-    #     if self.do_MILE:
-    #         self.acq = self.MILE(self.candidates, self.cost_thres, self.conf_thres)
-    #     if to_plot and self.logdir is not None:
-    #         self.plot(plot_acq=self.do_MILE)
-    #     if save:
-    #         self.save(self.logdir + f'/bols_init')
 
     def initial_setup_given_points(self, X, Y, seed, to_plot=True, save=False):
         np.random.seed(seed)
@@ -115,23 +66,13 @@ class MainGP:
         e = e + perturb * rand_nums  # To create a total order
         return e
 
-    def score_function(self, candidate_xs, rng_instance, error_function, 
-                            beta, t, decay_factor=0.9, weights=[1.0, 0.0, 0.001], 
-                            tol=1e-5):
+    def score_function(self, candidate_xs, rng_instance,  
+                            beta, t, decay_factor=0.9, 
+                            weights=[1.0, 0.0, 0.001]):
         '''
-        NOTE: error_function != ehat
         ehat = final_scores + beta * error_variances
         This function returns a_{h,eta}(z) and u_{h,eta}(z) for a desired set of z's.
         '''
-        # Bad score
-        # dist_from_boundary = []
-        # for candidate_x in candidate_xs:
-        #     if candidate_x[0] <= -5 and candidate_x[0] >= -10 and candidate_x[1] >= -10 and candidate_x[1] <= 10:
-        #         dist_from_boundary.append([1.0])
-        #     else:
-        #         dist_from_boundary.append([0.0])
-        # dist_from_boundary = np.array(dist_from_boundary)
-        # nan_mask = ~np.isnan(dist_from_boundary).any(axis=1)
         
         mu, var = self.m.predict(candidate_xs, full_cov=False)
         criterion = mu - beta * np.sqrt(var) # Conservative bc less likely to say state is in BRT
@@ -144,16 +85,9 @@ class MainGP:
         rand_nums = rng_instance.uniform(low=0.0, high=1.0, size=dist_from_boundary.shape)
         if weights[0] == 0.0:  # Random acquisition
             rand_nums = rand_nums * decay_factor**t
-        if error_function is not None:
-            errors, error_variances = error_function(candidate_xs)
-            errors = errors/sum(errors)  # Normalize
-            final_scores = weights[0] * dist_from_boundary + weights[1] * errors + \
-                            weights[2] * rand_nums
-        else:
-            # error_variances = 0.1 * dist_from_boundary + tol
-            final_scores = weights[0] * dist_from_boundary + \
-                            weights[2] * rand_nums
-            error_variances = 0.1 * final_scores
+        final_scores = weights[0] * dist_from_boundary + \
+                        weights[2] * rand_nums
+        error_variances = 0.1 * final_scores
         return final_scores, error_variances, nan_mask
     
     def optimize_given_T(self, T_x, T_y, seed,
@@ -168,13 +102,6 @@ class MainGP:
             self.plot(iter=iter, plot_acq=self.do_MILE)
         if save:
             self.save(self.logdir + f'/bols_{iter}')
-
-    def extract_levelset(self, x_test):
-        raise NotImplementedError
-        beta = norm.ppf(self.conf_thres)
-        mu, var = self.m.predict(x_test, full_cov=False)
-        criterion = mu - beta * np.sqrt(var)
-        return x_test[(criterion < self.cost_thres).squeeze()]
 
     def plot(self, iter=0, plot_acq=True):
         if self.input_dim == 1:

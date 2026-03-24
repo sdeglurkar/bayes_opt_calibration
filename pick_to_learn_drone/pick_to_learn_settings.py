@@ -33,21 +33,12 @@ MODEL_CANDIDATES_DISCRETIZATION = 0.1
 
 ########################### RANDOM SEED SETTINGS ###########################
 RANDOM_SEED = 0   # If only a single seed is being run
-# RNG = np.random.default_rng(RANDOM_SEED)
 MULTIPLE_SEEDS = False
 MULTIPLE_SEED_LIST = [0, 1, 2, 3, 17, 22, 24, 27, 31, 100] 
 MULTIPLE_RNG_LIST = [np.random.default_rng(seed) for seed in MULTIPLE_SEED_LIST]
-# if MULTIPLE_SEEDS: assert len(MULTIPLE_SEED_LIST) > 0
 
 ########################### PICK-TO-LEARN BOUND SETTINGS ###########################
 DESIRED_N = 4000 
-
-# if INPUT_DIM <= 3:
-#     DESIRED_N = 4000
-# elif INPUT_DIM == 4:
-#     DESIRED_N = 8000
-# elif INPUT_DIM == 6:
-#     DESIRED_N = 10000
 DELTA = 1e-4
 
 ########################### ACQUISITION FN SETTINGS ###########################
@@ -57,13 +48,8 @@ RANDOM_ACQUISITION = False
 
 DECAY_RATE = 0.95
 BETA_CONFORMAL = 0.1 
-# SIZE_C = find_size_of_C(ALPHA, TOLERANCE_ALPHA, BETA_CONFORMAL)
-# print("Number of errors possible:", (1-np.ceil((1-ALPHA) * (SIZE_C + 1))/SIZE_C) * SIZE_C)
-# NUM_CALIBRATION_POINTS = SIZE_C 
 EHAT_THRESHOLD = 0.3
 MAX_NUM_ACQUIRED_POINTS = 70 
-# assert NUM_CALIBRATION_POINTS >= (1-ALPHA)/ALPHA  # Necessary for conformal prediction
-# assert NUM_CALIBRATION_POINTS >= SIZE_C  # Necessary for conformal prediction
 
 ########################### BASELINE SETTINGS ###########################
 ALBERT_EPS = 0.05 
@@ -73,9 +59,6 @@ ROBUST_ALBERT_N_SWEEP = [150, 200, 250, 300, 350, 500, 750, 1000]
 ROBUST_ALBERT_LEVEL_SWEEP = [0.0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 0.75, 0.9, 1.0]
 
 ########################### OTHER SETTINGS ###########################
-# EXPERIMENT_STRING = str(INPUT_DIM) + \
-#     'D_basicslice_boundaryacq_N4000_init40_decay0.95thres0.3_alpha0.05_tolalpha0.03'
-
 VALIDATION_DISCRETIZATION = [0.05, 0.05, 0.05, 0.01, 0.05, 0.05, \
                             0.05, 0.05, 0.05, 0.01, 0.05, 0.05]
 if INPUT_DIM >= 4:
@@ -83,18 +66,6 @@ if INPUT_DIM >= 4:
                             0.08, 0.08, 0.08, 0.06, 0.08, 0.08]
 PLOT_DURING_ACQUISITION = False
 FONTSIZE = 16
-# LOGDIR = 'drone_model_dir_' + EXPERIMENT_STRING
-# os.makedirs(LOGDIR, exist_ok=True)
-# EXPERIMENT_PICKLE_NAME = 'drone_' + EXPERIMENT_STRING
-# ERROR_GP_LOGDIR = 'drone_errorgp_dir_' + str(INPUT_DIM) + 'D'
-# VALIDATION_LOGDIR = 'drone_pickles_' + EXPERIMENT_STRING
-# os.makedirs(VALIDATION_LOGDIR, exist_ok=True)
-
-########################### GET POLICY ###########################
-# ARGS = get_args()
-# ENV, POLICY = get_env_and_policy(ARGS)
-# F = batched_rollouts_generator(HORIZON, POLICY, ARGS) 
-
 
 ########################### ARGUMENT PARSING ###########################
 PARSER = get_parser()
